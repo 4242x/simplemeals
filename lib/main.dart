@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:simplemeals/screens/admin_dashboard.dart';
 import 'package:simplemeals/screens/login_screen.dart';
 
 void main() {
@@ -18,7 +19,7 @@ class MyApp extends StatelessWidget {
         fontFamily: 'Poppins',
         useMaterial3: true
       ),
-      home: const LoginScreen(),
+      home: const AdminDashboard(),
     );
   }
 }

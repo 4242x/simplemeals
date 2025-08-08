@@ -1,5 +1,6 @@
 
 import 'package:flutter/material.dart';
+import 'package:simplemeals/screens/admin_dashboard.dart';
 import 'package:simplemeals/screens/login_screen.dart';
 
 class SignUpScreen extends StatelessWidget {
@@ -8,7 +9,7 @@ class SignUpScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color.fromARGB(255, 208, 255, 203),
+      backgroundColor:const Color.fromARGB(255, 208, 255, 203),
       body: Center(
         child: LayoutBuilder(
           builder: (context, constraints) {
@@ -122,7 +123,12 @@ class SignUpScreen extends StatelessWidget {
             borderRadius: BorderRadius.circular(40.0),
           ),
         ),
-        onPressed: () {},
+        onPressed: () {
+                    Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => const AdminDashboard()),
+          );
+        },
         child: const Text('Sign Up!', style: TextStyle(fontSize: 16)),
       ),
     );
