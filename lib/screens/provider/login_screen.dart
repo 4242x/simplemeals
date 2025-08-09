@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:simplemeals/screens/signup_screen.dart';
+import 'package:simplemeals/screens/provider/signup_screen.dart';
 
 class LoginScreen extends StatelessWidget {
   const LoginScreen({super.key});
@@ -32,7 +32,7 @@ class LoginScreen extends StatelessWidget {
                     Container(
                       padding: const EdgeInsets.all(32.0),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF90E969),
+                        color: Colors.black87,
                         borderRadius: BorderRadius.circular(20.0),
                       ),
                       child: Column(
@@ -41,16 +41,16 @@ class LoginScreen extends StatelessWidget {
                         children: [
                           const Center(
                             child: Text(
-                              'Student - Log In',
+                              ' Provider - Log In',
                               style: TextStyle(
                                 fontSize: 28,
                                 fontWeight: FontWeight.bold,
-                                color: Colors.black87,
+                                color: Colors.white,
                               ),
                             ),
                           ),
                           const SizedBox(height: 30),
-                          _labeledInput(label: 'User ID'),
+                          _labeledInput(label: ' Provider ID'),
                           const SizedBox(height: 20),
                           _labeledInput(label: 'Password', obscureText: true),
                           const SizedBox(height: 30),
@@ -76,7 +76,7 @@ class LoginScreen extends StatelessWidget {
           label,
           style: const TextStyle(
             fontWeight: FontWeight.bold,
-            color: Colors.black87,
+            color: Colors.white,
             fontSize: 16,
           ),
         ),
@@ -105,7 +105,7 @@ class LoginScreen extends StatelessWidget {
       child: ElevatedButton(
         style: ElevatedButton.styleFrom(
           elevation: 0,
-          foregroundColor: Colors.black87,
+          foregroundColor: Colors.white,
           backgroundColor: const Color(0xFF66BB6A),
           padding: const EdgeInsets.symmetric(vertical: 16.0),
           shape: RoundedRectangleBorder(
@@ -120,8 +120,8 @@ class LoginScreen extends StatelessWidget {
     final signUpButton = Expanded(
       child: ElevatedButton(
         style: ElevatedButton.styleFrom(
-          foregroundColor: Colors.white,
-          backgroundColor: Colors.black87,
+          foregroundColor: Colors.black87,
+          backgroundColor: Colors.white,
           padding: const EdgeInsets.symmetric(vertical: 16.0),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(40.0),

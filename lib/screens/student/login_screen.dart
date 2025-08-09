@@ -1,23 +1,21 @@
-
 import 'package:flutter/material.dart';
-import 'package:simplemeals/screens/admin_dashboard.dart';
-import 'package:simplemeals/screens/login_screen.dart';
+import 'package:simplemeals/screens/student/signup_screen.dart';
+import 'package:simplemeals/screens/student/student_dashboard.dart';
 
-class SignUpScreen extends StatelessWidget {
-  const SignUpScreen({super.key});
+class LoginScreen extends StatelessWidget {
+  const LoginScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor:const Color.fromARGB(255, 208, 255, 203),
+      backgroundColor: const Color.fromARGB(255, 208, 255, 203),
       body: Center(
         child: LayoutBuilder(
           builder: (context, constraints) {
             return ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 500),
               child: SingleChildScrollView(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 24.0, vertical: 48.0),
+                padding: const EdgeInsets.symmetric(horizontal: 24.0),
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
@@ -44,7 +42,7 @@ class SignUpScreen extends StatelessWidget {
                         children: [
                           const Center(
                             child: Text(
-                              'Student - Sign Up',
+                              'Student - Log In',
                               style: TextStyle(
                                 fontSize: 28,
                                 fontWeight: FontWeight.bold,
@@ -53,18 +51,9 @@ class SignUpScreen extends StatelessWidget {
                             ),
                           ),
                           const SizedBox(height: 30),
-                          _labeledInput(label: 'Create an User ID'),
+                          _labeledInput(label: 'User ID'),
                           const SizedBox(height: 20),
-                          _labeledInput(
-                              label: 'Create a password', obscureText: true),
-                          const SizedBox(height: 20),
-                          _labeledInput(label: 'Name'),
-                          const SizedBox(height: 20),
-                          _labeledInput(label: 'Institution'),
-                          const SizedBox(height: 20),
-                          _labeledInput(label: 'Age'),
-                          const SizedBox(height: 20),
-                          _labeledInput(label: 'Select food preference'),
+                          _labeledInput(label: 'Password', obscureText: true),
                           const SizedBox(height: 30),
                           _actionButtons(context, constraints.maxWidth),
                         ],
@@ -113,9 +102,10 @@ class SignUpScreen extends StatelessWidget {
   Widget _actionButtons(BuildContext context, double screenWidth) {
     bool isNarrow = screenWidth < 360;
 
-    final signUpButton = Expanded(
+    final signInButton = Expanded(
       child: ElevatedButton(
         style: ElevatedButton.styleFrom(
+          elevation: 0,
           foregroundColor: Colors.black87,
           backgroundColor: const Color(0xFF66BB6A),
           padding: const EdgeInsets.symmetric(vertical: 16.0),
@@ -123,17 +113,15 @@ class SignUpScreen extends StatelessWidget {
             borderRadius: BorderRadius.circular(40.0),
           ),
         ),
-        onPressed: () {
-                    Navigator.pushReplacement(
+        onPressed: () { Navigator.push(
             context,
-            MaterialPageRoute(builder: (context) => const AdminDashboard()),
-          );
-        },
-        child: const Text('Sign Up!', style: TextStyle(fontSize: 16)),
+            MaterialPageRoute(builder: (context) => const StudentDashboard()),
+          );},
+        child: const Text('Sign In!', style: TextStyle(fontSize: 16)),
       ),
     );
 
-    final logInButton = Expanded(
+    final signUpButton = Expanded(
       child: ElevatedButton(
         style: ElevatedButton.styleFrom(
           foregroundColor: Colors.white,
@@ -144,27 +132,27 @@ class SignUpScreen extends StatelessWidget {
           ),
         ),
         onPressed: () {
-          Navigator.pushReplacement(
+          Navigator.push(
             context,
-            MaterialPageRoute(builder: (context) => const LoginScreen()),
+            MaterialPageRoute(builder: (context) => const SignUpScreen()),
           );
         },
-        child: const Text('Log In?', style: TextStyle(fontSize: 16)),
+        child: const Text('Sign Up?', style: TextStyle(fontSize: 16)),
       ),
     );
 
     if (isNarrow) {
       return Column(
         children: [
-          SizedBox(width: double.infinity, child: signUpButton.child),
+          SizedBox(width: double.infinity, child: signInButton.child),
           const SizedBox(height: 12),
-          SizedBox(width: double.infinity, child: logInButton.child),
+          SizedBox(width: double.infinity, child: signUpButton.child),
         ],
       );
     }
 
     return Row(
-      children: [signUpButton, const SizedBox(width: 20), logInButton],
+      children: [signInButton, const SizedBox(width: 20), signUpButton],
     );
   }
 }
