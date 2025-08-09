@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:simplemeals/landing_page.dart';
+import 'package:simplemeals/screens/provider/inventory_screen.dart';
 
 class ProviderDashboard extends StatelessWidget {
   const ProviderDashboard({super.key});
@@ -15,7 +17,12 @@ class ProviderDashboard extends StatelessWidget {
         toolbarHeight: 80,
         leading: IconButton(
           icon: const Icon(Icons.menu, color: Colors.black87, size: 30),
-          onPressed: () {},
+          onPressed: () {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (context) => const LandingPage()),
+            );
+          },
         ),
         title: Center(
           child: const Text(
@@ -40,7 +47,7 @@ class ProviderDashboard extends StatelessWidget {
         children: [
           _buildWelcomeCard(newColor),
           const SizedBox(height: 20),
-          _buildTopSection(newColor),
+          _buildTopSection(context, newColor),
           const SizedBox(height: 20),
           _buildInsightsAndFeedbackCard(),
         ],
@@ -73,7 +80,7 @@ class ProviderDashboard extends StatelessWidget {
     );
   }
 
-  Widget _buildTopSection(Color cardColor) {
+  Widget _buildTopSection(BuildContext context, Color cardColor) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -88,10 +95,7 @@ class ProviderDashboard extends StatelessWidget {
           ),
         ),
         const SizedBox(width: 10),
-        Expanded(
-          flex: 3,
-          child: _buildInventoryCard(),
-        ),
+        Expanded(flex: 3, child: _buildInventoryCard(context)),
       ],
     );
   }
@@ -108,8 +112,10 @@ class ProviderDashboard extends StatelessWidget {
           children: [
             Icon(Icons.add_circle_outline, size: 32, color: Colors.black87),
             SizedBox(width: 15),
-            Text('Add a\nschool',
-                style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+            Text(
+              'Add a\nschool',
+              style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+            ),
           ],
         ),
       ),
@@ -145,7 +151,7 @@ class ProviderDashboard extends StatelessWidget {
     );
   }
 
-  Widget _buildInventoryCard() {
+  Widget _buildInventoryCard(BuildContext context) {
     return Card(
       clipBehavior: Clip.antiAlias,
       elevation: 0,
@@ -160,9 +166,10 @@ class ProviderDashboard extends StatelessWidget {
               child: Text(
                 'Inventory',
                 style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black87),
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
+                ),
               ),
             ),
           ),
@@ -171,15 +178,33 @@ class ProviderDashboard extends StatelessWidget {
             padding: const EdgeInsets.all(16),
             child: Column(
               children: [
-                _inventoryItem('Rice & Curry', 'Available: 100 meals',
-                    Colors.green, Colors.orange[200]!),
+                _inventoryItem(
+                  'Rice & Curry',
+                  'Available: 100 meals',
+                  Colors.green,
+                  Colors.orange[200]!,
+                ),
                 const Divider(height: 24),
-                _inventoryItem('Eggs', 'Unavailable: Refill', Colors.red,
-                    Colors.yellow[200]!),
+                _inventoryItem(
+                  'Eggs',
+                  'Unavailable: Refill',
+                  Colors.red,
+                  Colors.yellow[200]!,
+                ),
                 const SizedBox(height: 12),
-                const Center(
-                  child: Text('Click to access →',
-                      style: TextStyle(color: Colors.black54, fontSize: 12)),
+                Center(
+                  child: GestureDetector(
+                    onTap: () => Navigator.pushReplacement(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const InventoryScreen(),
+                      ),
+                    ),
+                    child: Text(
+                      'Click to access →',
+                      style: TextStyle(color: Colors.black54, fontSize: 12),
+                    ),
+                  ),
                 ),
               ],
             ),
@@ -190,19 +215,29 @@ class ProviderDashboard extends StatelessWidget {
   }
 
   Widget _inventoryItem(
-      String title, String subtitle, Color subtitleColor, Color imageColor) {
+    String title,
+    String subtitle,
+    Color subtitleColor,
+    Color imageColor,
+  ) {
     return Row(
       children: [
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(title,
-                  style: const TextStyle(
-                      fontWeight: FontWeight.bold, fontSize: 14)),
+              Text(
+                title,
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                ),
+              ),
               const SizedBox(height: 2),
-              Text(subtitle,
-                  style: TextStyle(color: subtitleColor, fontSize: 12)),
+              Text(
+                subtitle,
+                style: TextStyle(color: subtitleColor, fontSize: 12),
+              ),
             ],
           ),
         ),
@@ -235,9 +270,10 @@ class ProviderDashboard extends StatelessWidget {
               child: Text(
                 'Attendance Insights & Feedback',
                 style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black87),
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
+                ),
               ),
             ),
           ),
@@ -271,8 +307,9 @@ class ProviderDashboard extends StatelessWidget {
                   color: Colors.white,
                   elevation: 0,
                   shape: RoundedRectangleBorder(
-                      side: BorderSide(color: Colors.grey[300]!),
-                      borderRadius: BorderRadius.circular(15)),
+                    side: BorderSide(color: Colors.grey[300]!),
+                    borderRadius: BorderRadius.circular(15),
+                  ),
                   child: Padding(
                     padding: const EdgeInsets.all(16.0),
                     child: Column(
@@ -289,18 +326,22 @@ class ProviderDashboard extends StatelessWidget {
                         ),
                         const SizedBox(height: 16),
                         _feedbackItem(
-                            'School ABC has requested for one more egg per meal instead of a fruit.'),
+                          'School ABC has requested for one more egg per meal instead of a fruit.',
+                        ),
                         const Divider(height: 24),
                         _feedbackItem(
-                            'School XYZ requires 44 more meals from next Tuesday.'),
+                          'School XYZ requires 44 more meals from next Tuesday.',
+                        ),
                       ],
                     ),
                   ),
                 ),
                 const SizedBox(height: 16),
                 const Center(
-                  child: Text('Click to view more →',
-                      style: TextStyle(color: Colors.black54)),
+                  child: Text(
+                    'Click to view more →',
+                    style: TextStyle(color: Colors.black54),
+                  ),
                 ),
               ],
             ),

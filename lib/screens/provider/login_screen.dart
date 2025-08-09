@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:simplemeals/screens/provider/provider_dashboard.dart';
 import 'package:simplemeals/screens/provider/signup_screen.dart';
 
 class ProviderLoginScreen extends StatelessWidget {
@@ -112,7 +113,12 @@ class ProviderLoginScreen extends StatelessWidget {
             borderRadius: BorderRadius.circular(40.0),
           ),
         ),
-        onPressed: () {},
+        onPressed: () {
+                            Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const ProviderDashboard()),
+          );
+        },
         child: const Text('Sign In!', style: TextStyle(fontSize: 16)),
       ),
     );

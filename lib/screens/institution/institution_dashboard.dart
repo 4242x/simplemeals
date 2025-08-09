@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:simplemeals/landing_page.dart';
 
 class InstitutionDashboard extends StatelessWidget {
   const InstitutionDashboard({super.key});
@@ -15,7 +16,14 @@ class InstitutionDashboard extends StatelessWidget {
         toolbarHeight: 80,
         leading: IconButton(
           icon: const Icon(Icons.menu, color: Colors.black87, size: 30),
-          onPressed: () {},
+          onPressed: () {
+            {
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(builder: (context) => const LandingPage()),
+              );
+            }
+          },
         ),
         title: Center(
           child: const Text(
@@ -74,12 +82,8 @@ class InstitutionDashboard extends StatelessWidget {
   }
 
   Widget _buildTopSection(Color cardColor) {
-    return         Expanded(
-          flex: 3,
-          child: _buildInventoryCard(),
-        );
+    return Expanded(flex: 3, child: _buildInventoryCard());
   }
-
 
   Widget _buildInventoryCard() {
     return Card(
@@ -96,9 +100,10 @@ class InstitutionDashboard extends StatelessWidget {
               child: Text(
                 'Today\'s Menu',
                 style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black87),
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
+                ),
               ),
             ),
           ),
@@ -109,15 +114,25 @@ class InstitutionDashboard extends StatelessWidget {
               padding: const EdgeInsets.symmetric(vertical: 0, horizontal: 8),
               child: Column(
                 children: [
-                  _inventoryItem('Rice & Curry', 'Available: 100 meals',
-                      Colors.green, Colors.orange[200]!),
+                  _inventoryItem(
+                    'Rice & Curry',
+                    'Available: 100 meals',
+                    Colors.green,
+                    Colors.orange[200]!,
+                  ),
                   const Divider(height: 24),
-                  _inventoryItem('Eggs', 'Unavailable: Refill', Colors.red,
-                      Colors.yellow[200]!),
+                  _inventoryItem(
+                    'Eggs',
+                    'Unavailable: Refill',
+                    Colors.red,
+                    Colors.yellow[200]!,
+                  ),
                   const SizedBox(height: 12),
                   const Center(
-                    child: Text('Click to access →',
-                        style: TextStyle(color: Colors.black54, fontSize: 12)),
+                    child: Text(
+                      'Click to access →',
+                      style: TextStyle(color: Colors.black54, fontSize: 12),
+                    ),
                   ),
                 ],
               ),
@@ -129,19 +144,29 @@ class InstitutionDashboard extends StatelessWidget {
   }
 
   Widget _inventoryItem(
-      String title, String subtitle, Color subtitleColor, Color imageColor) {
+    String title,
+    String subtitle,
+    Color subtitleColor,
+    Color imageColor,
+  ) {
     return Row(
       children: [
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(title,
-                  style: const TextStyle(
-                      fontWeight: FontWeight.bold, fontSize: 14)),
+              Text(
+                title,
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                ),
+              ),
               const SizedBox(height: 2),
-              Text(subtitle,
-                  style: TextStyle(color: subtitleColor, fontSize: 12)),
+              Text(
+                subtitle,
+                style: TextStyle(color: subtitleColor, fontSize: 12),
+              ),
             ],
           ),
         ),
@@ -174,9 +199,10 @@ class InstitutionDashboard extends StatelessWidget {
               child: Text(
                 'Attendance Insights & Feedback',
                 style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black87),
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
+                ),
               ),
             ),
           ),
@@ -210,8 +236,9 @@ class InstitutionDashboard extends StatelessWidget {
                   color: Colors.white,
                   elevation: 0,
                   shape: RoundedRectangleBorder(
-                      side: BorderSide(color: Colors.grey[300]!),
-                      borderRadius: BorderRadius.circular(15)),
+                    side: BorderSide(color: Colors.grey[300]!),
+                    borderRadius: BorderRadius.circular(15),
+                  ),
                   child: Padding(
                     padding: const EdgeInsets.all(16.0),
                     child: Column(
@@ -228,7 +255,8 @@ class InstitutionDashboard extends StatelessWidget {
                         ),
                         const SizedBox(height: 16),
                         _feedbackItem(
-                            'Yash from Class 12 reported of not receiving his meals on last Tuesday'),
+                          'Yash from Class 12 reported of not receiving his meals on last Tuesday',
+                        ),
                         const Divider(height: 24),
                       ],
                     ),
@@ -236,8 +264,10 @@ class InstitutionDashboard extends StatelessWidget {
                 ),
                 const SizedBox(height: 16),
                 const Center(
-                  child: Text('Click to view more →',
-                      style: TextStyle(color: Colors.black54)),
+                  child: Text(
+                    'Click to view more →',
+                    style: TextStyle(color: Colors.black54),
+                  ),
                 ),
               ],
             ),
