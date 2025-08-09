@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-class InstitutionDashboard extends StatelessWidget {
-  const InstitutionDashboard({super.key});
+class ProviderDashboard extends StatelessWidget {
+  const ProviderDashboard({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -59,12 +59,12 @@ class InstitutionDashboard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Hello, BJT School',
+              'Hello, Shiba Foods.',
               style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
             ),
             SizedBox(height: 8),
             Text(
-              'You will be receiving meals for 312 students tomorrow. Please appropriately prepare and ensure proper distribution.',
+              'Please check out your available inventory for today. 31 schools are expecting meals today.',
               style: TextStyle(fontSize: 16, color: Colors.black54),
             ),
           ],
@@ -74,12 +74,76 @@ class InstitutionDashboard extends StatelessWidget {
   }
 
   Widget _buildTopSection(Color cardColor) {
-    return         Expanded(
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          flex: 2,
+          child: Column(
+            children: [
+              _buildAddSchoolCard(cardColor),
+              const SizedBox(height: 10),
+              _buildLogisticsCard(),
+            ],
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
           flex: 3,
           child: _buildInventoryCard(),
-        );
+        ),
+      ],
+    );
   }
 
+  Widget _buildAddSchoolCard(Color cardColor) {
+    return Card(
+      color: cardColor,
+      elevation: 0,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      child: const Padding(
+        padding: EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.add_circle_outline, size: 32, color: Colors.black87),
+            SizedBox(width: 15),
+            Text('Add a\nschool',
+                style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLogisticsCard() {
+    return Card(
+      clipBehavior: Clip.antiAlias,
+      elevation: 0,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      child: Container(
+        color: Colors.blueGrey[300],
+        child: const Padding(
+          padding: EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'View\nInstitution\nLogistics →',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                  height: 1.2,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 
   Widget _buildInventoryCard() {
     return Card(
@@ -94,7 +158,7 @@ class InstitutionDashboard extends StatelessWidget {
             padding: const EdgeInsets.symmetric(vertical: 12),
             child: const Center(
               child: Text(
-                'Today\'s Menu',
+                'Inventory',
                 style: TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
@@ -105,22 +169,19 @@ class InstitutionDashboard extends StatelessWidget {
           Container(
             color: const Color.fromARGB(255, 246, 255, 245),
             padding: const EdgeInsets.all(16),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 0, horizontal: 8),
-              child: Column(
-                children: [
-                  _inventoryItem('Rice & Curry', 'Available: 100 meals',
-                      Colors.green, Colors.orange[200]!),
-                  const Divider(height: 24),
-                  _inventoryItem('Eggs', 'Unavailable: Refill', Colors.red,
-                      Colors.yellow[200]!),
-                  const SizedBox(height: 12),
-                  const Center(
-                    child: Text('Click to access →',
-                        style: TextStyle(color: Colors.black54, fontSize: 12)),
-                  ),
-                ],
-              ),
+            child: Column(
+              children: [
+                _inventoryItem('Rice & Curry', 'Available: 100 meals',
+                    Colors.green, Colors.orange[200]!),
+                const Divider(height: 24),
+                _inventoryItem('Eggs', 'Unavailable: Refill', Colors.red,
+                    Colors.yellow[200]!),
+                const SizedBox(height: 12),
+                const Center(
+                  child: Text('Click to access →',
+                      style: TextStyle(color: Colors.black54, fontSize: 12)),
+                ),
+              ],
             ),
           ),
         ],
@@ -228,8 +289,10 @@ class InstitutionDashboard extends StatelessWidget {
                         ),
                         const SizedBox(height: 16),
                         _feedbackItem(
-                            'Yash from Class 12 reported of not receiving his meals on last Tuesday'),
+                            'School ABC has requested for one more egg per meal instead of a fruit.'),
                         const Divider(height: 24),
+                        _feedbackItem(
+                            'School XYZ requires 44 more meals from next Tuesday.'),
                       ],
                     ),
                   ),

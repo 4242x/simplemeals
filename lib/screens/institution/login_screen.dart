@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:simplemeals/screens/student/signup_screen.dart';
 
-class LoginScreen extends StatelessWidget {
-  const LoginScreen({super.key});
+class InstitutionLoginScreen extends StatelessWidget {
+  const InstitutionLoginScreen({super.key});
 
   @override
   Widget build(BuildContext context) {

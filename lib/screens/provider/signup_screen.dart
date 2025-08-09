@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:simplemeals/screens/institution/institution_dashboard.dart';
+
 import 'package:simplemeals/screens/provider/login_screen.dart';
+import 'package:simplemeals/screens/provider/provider_dashboard.dart';
 
 class SignUpScreen extends StatelessWidget {
   const SignUpScreen({super.key});
@@ -127,7 +128,7 @@ class SignUpScreen extends StatelessWidget {
         onPressed: () {
           Navigator.pushReplacement(
             context,
-            MaterialPageRoute(builder: (context) => const AdminDashboard()),
+            MaterialPageRoute(builder: (context) => const ProviderDashboard()),
           );
         },
         child: const Text('Sign Up!', style: TextStyle(fontSize: 16)),
@@ -147,7 +148,7 @@ class SignUpScreen extends StatelessWidget {
         onPressed: () {
           Navigator.pushReplacement(
             context,
-            MaterialPageRoute(builder: (context) => const LoginScreen()),
+            MaterialPageRoute(builder: (context) => const ProviderLoginScreen()),
           );
         },
         child: const Text('Log In?', style: TextStyle(fontSize: 16)),

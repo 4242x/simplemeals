@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:simplemeals/screens/student/signup_screen.dart';
 import 'package:simplemeals/screens/student/student_dashboard.dart';
 
-class LoginScreen extends StatelessWidget {
-  const LoginScreen({super.key});
+class StudentLoginScreen extends StatelessWidget {
+  const StudentLoginScreen({super.key});
 
   @override
   Widget build(BuildContext context) {

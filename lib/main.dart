@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:simplemeals/screens/provider/login_screen.dart';
+import 'package:simplemeals/landing_page.dart';
+import 'package:simplemeals/screens/institution/institution_dashboard.dart';
+
 
 
 void main() {
@@ -19,7 +21,7 @@ class MyApp extends StatelessWidget {
         fontFamily: 'Poppins',
         useMaterial3: true
       ),
-      home: const LoginScreen(),
+      home: const InstitutionDashboard(),
     );
   }
 }
