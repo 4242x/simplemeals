@@ -1,10 +1,107 @@
-
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:simplemeals/screens/student/login_screen.dart';
 import 'package:simplemeals/screens/student/student_dashboard.dart';
 
-class SignUpScreen extends StatelessWidget {
+class SignUpScreen extends StatefulWidget {
   const SignUpScreen({super.key});
+
+  @override
+  State<SignUpScreen> createState() => _SignUpScreenState();
+}
+
+class _SignUpScreenState extends State<SignUpScreen> {
+  final TextEditingController _idController = TextEditingController();
+  final TextEditingController _passwordController = TextEditingController();
+  final TextEditingController _nameController = TextEditingController();
+  final TextEditingController _institutionController = TextEditingController();
+  final TextEditingController _ageController = TextEditingController();
+  final TextEditingController _prefController = TextEditingController();
+
+  bool _isLoading = false;
+
+  Future<void> _signUpStudent() async {
+    final id = _idController.text.trim();
+    final password = _passwordController.text.trim();
+    final name = _nameController.text.trim();
+    final institute = _institutionController.text.trim();
+    final age = _ageController.text.trim();
+    final pref = _prefController.text.trim();
+
+    if (id.isEmpty || password.isEmpty || name.isEmpty || institute.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please fill required fields')),
+      );
+      return;
+    }
+
+    setState(() => _isLoading = true);
+    final dummyEmail = "$id@simplemeals.fake";
+
+    try {
+      // create auth user
+      UserCredential uc = await FirebaseAuth.instance
+          .createUserWithEmailAndPassword(email: dummyEmail, password: password);
+      final uid = uc.user!.uid;
+
+      // write users/{uid}
+      await FirebaseFirestore.instance.collection('users').doc(uid).set({
+        'role': 'student',
+        'userId': id,
+        'email': dummyEmail,
+        'name': name,
+        'institute': institute,
+        'age': int.tryParse(age) ?? null,
+        'preference': pref,
+        'uid': uid,
+      });
+
+      // create students/{uid} profile doc
+      await FirebaseFirestore.instance.collection('students').doc(uid).set({
+        'profile': {
+          'name': name,
+          'institute': institute,
+          'age': int.tryParse(age) ?? null,
+          'preference': pref,
+        },
+        'attendance': {},
+      });
+
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => const StudentDashboard()),
+      );
+    } on FirebaseAuthException catch (e) {
+      String message = e.message ?? 'Signup failed';
+      if (e.code == 'email-already-in-use') message = 'User ID already exists';
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+    } finally {
+      setState(() => _isLoading = false);
+    }
+  }
+
+  Widget _labeledInput({required String label, bool obscureText = false, TextEditingController? controller}) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.black87, fontSize: 16)),
+        const SizedBox(height: 8),
+        TextField(
+          controller: controller,
+          obscureText: obscureText,
+          decoration: InputDecoration(
+            filled: true,
+            fillColor: Colors.white,
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(30.0), borderSide: BorderSide.none),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          ),
+        ),
+      ],
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -53,20 +150,24 @@ class SignUpScreen extends StatelessWidget {
                             ),
                           ),
                           const SizedBox(height: 30),
-                          _labeledInput(label: 'Create an User ID'),
+                          _labeledInput(label: 'Create an User ID', controller: _idController),
                           const SizedBox(height: 20),
-                          _labeledInput(
-                              label: 'Create a password', obscureText: true),
+                          _labeledInput(label: 'Create a password', obscureText: true, controller: _passwordController),
                           const SizedBox(height: 20),
-                          _labeledInput(label: 'Name'),
+                          _labeledInput(label: 'Name', controller: _nameController),
                           const SizedBox(height: 20),
-                          _labeledInput(label: 'Institution'),
+                          _labeledInput(label: 'Institution', controller: _institutionController),
                           const SizedBox(height: 20),
-                          _labeledInput(label: 'Age'),
+                          _labeledInput(label: 'Age', controller: _ageController),
                           const SizedBox(height: 20),
-                          _labeledInput(label: 'Select food preference'),
+                          _labeledInput(label: 'Select food preference', controller: _prefController),
                           const SizedBox(height: 30),
                           _actionButtons(context, constraints.maxWidth),
+                          if (_isLoading)
+                            const Padding(
+                              padding: EdgeInsets.only(top: 20),
+                              child: Center(child: CircularProgressIndicator()),
+                            ),
                         ],
                       ),
                     ),
@@ -77,36 +178,6 @@ class SignUpScreen extends StatelessWidget {
           },
         ),
       ),
-    );
-  }
-
-  Widget _labeledInput({required String label, bool obscureText = false}) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: const TextStyle(
-            fontWeight: FontWeight.bold,
-            color: Colors.black87,
-            fontSize: 16,
-          ),
-        ),
-        const SizedBox(height: 8),
-        TextField(
-          obscureText: obscureText,
-          decoration: InputDecoration(
-            filled: true,
-            fillColor: Colors.white,
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(30.0),
-              borderSide: BorderSide.none,
-            ),
-            contentPadding:
-                const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-          ),
-        ),
-      ],
     );
   }
 
@@ -123,12 +194,7 @@ class SignUpScreen extends StatelessWidget {
             borderRadius: BorderRadius.circular(40.0),
           ),
         ),
-        onPressed: () {
- Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => const StudentDashboard()),
-          );
-        },
+        onPressed: _isLoading ? null : _signUpStudent,
         child: const Text('Sign Up!', style: TextStyle(fontSize: 16)),
       ),
     );

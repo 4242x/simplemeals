@@ -1,9 +1,74 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 import 'package:simplemeals/screens/student/signup_screen.dart';
 import 'package:simplemeals/screens/student/student_dashboard.dart';
 
-class StudentLoginScreen extends StatelessWidget {
+class StudentLoginScreen extends StatefulWidget {
   const StudentLoginScreen({super.key});
+
+  @override
+  State<StudentLoginScreen> createState() => _StudentLoginScreenState();
+}
+
+class _StudentLoginScreenState extends State<StudentLoginScreen> {
+  final _idController = TextEditingController();
+  final _passwordController = TextEditingController();
+  bool _loading = false;
+
+  Future<void> _login() async {
+    final id = _idController.text.trim();
+    final password = _passwordController.text.trim();
+
+    if (id.isEmpty || password.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Please enter both ID and password")),
+      );
+      return;
+    }
+
+    setState(() => _loading = true);
+
+    final fakeEmail = "$id@simplemeals.fake";
+
+    try {
+      final userCredential = await FirebaseAuth.instance
+          .signInWithEmailAndPassword(email: fakeEmail, password: password);
+
+      final uid = userCredential.user!.uid;
+
+      final snapshot =
+          await FirebaseFirestore.instance.collection('users').doc(uid).get();
+
+      if (!snapshot.exists) {
+        throw Exception("User record not found in Firestore.");
+      }
+
+      final data = snapshot.data();
+      final role = data?['role'] ?? data?['type'] ?? null;
+
+      if (role != 'student') {
+        throw Exception("You are not registered as a Student.");
+      }
+
+      // successful login → navigate
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => const StudentDashboard()),
+      );
+    } on FirebaseAuthException catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.message ?? "Login failed")),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.toString())),
+      );
+    } finally {
+      setState(() => _loading = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -51,9 +116,9 @@ class StudentLoginScreen extends StatelessWidget {
                             ),
                           ),
                           const SizedBox(height: 30),
-                          _labeledInput(label: 'User ID'),
+                          _labeledInput(label: 'User ID', controller: _idController),
                           const SizedBox(height: 20),
-                          _labeledInput(label: 'Password', obscureText: true),
+                          _labeledInput(label: 'Password', obscureText: true, controller: _passwordController),
                           const SizedBox(height: 30),
                           _actionButtons(context, constraints.maxWidth),
                         ],
@@ -69,7 +134,11 @@ class StudentLoginScreen extends StatelessWidget {
     );
   }
 
-  Widget _labeledInput({required String label, bool obscureText = false}) {
+  Widget _labeledInput({
+    required String label,
+    bool obscureText = false,
+    TextEditingController? controller,
+  }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -83,6 +152,7 @@ class StudentLoginScreen extends StatelessWidget {
         ),
         const SizedBox(height: 8),
         TextField(
+          controller: controller,
           obscureText: obscureText,
           decoration: InputDecoration(
             filled: true,
@@ -113,11 +183,14 @@ class StudentLoginScreen extends StatelessWidget {
             borderRadius: BorderRadius.circular(40.0),
           ),
         ),
-        onPressed: () { Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => const StudentDashboard()),
-          );},
-        child: const Text('Sign In!', style: TextStyle(fontSize: 16)),
+        onPressed: _loading ? null : _login,
+        child: _loading
+            ? const SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
+            : const Text('Sign In!', style: TextStyle(fontSize: 16)),
       ),
     );
 

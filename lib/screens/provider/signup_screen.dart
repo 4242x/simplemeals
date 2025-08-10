@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:simplemeals/screens/provider/login_screen.dart';
 import 'package:simplemeals/screens/provider/provider_dashboard.dart';
 
@@ -33,34 +34,62 @@ class _ProviderSignupScreenState extends State<ProviderSignupScreen> {
 
     setState(() => isLoading = true);
 
-    try {
-      // Check if Provider ID already exists
-      final existing = await FirebaseFirestore.instance
-          .collection('providers')
-          .doc(providerId)
-          .get();
+    // Dummy email for Auth
+    final dummyEmail = "$providerId@simplemeals.fake";
 
-      if (existing.exists) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Provider ID already exists")),
-        );
-      } else {
-        // Save to Firestore
-        await FirebaseFirestore.instance
-            .collection('providers')
-            .doc(providerId)
-            .set({
-          'providerId': providerId,
-          'password': password,
+    try {
+      // Create Firebase Auth user
+      UserCredential userCredential = await FirebaseAuth.instance
+          .createUserWithEmailAndPassword(
+        email: dummyEmail,
+        password: password,
+      );
+
+      String uid = userCredential.user!.uid;
+
+      // Store provider data in Firestore under users/{uid}
+      // NOTE: we write both 'role' and 'type' for compatibility
+      await FirebaseFirestore.instance.collection('users').doc(uid).set({
+        'role': 'provider',
+        'type': 'provider',
+        'providerId': providerId,
+        'email': dummyEmail,
+        'state': state,
+        'city': city,
+        'uid': uid,
+      });
+
+      // Create provider profile/doc under providers/{uid}
+      await FirebaseFirestore.instance
+          .collection('providers')
+          .doc(uid)
+          .set({
+        'profile': {
           'state': state,
           'city': city,
-        });
+          'status': 'active',
+        },
+        // inventory and orders will be subcollections later (or kept empty map)
+        'inventory': {},
+        'orders': {},
+      });
 
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => const ProviderDashboard()),
-        );
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => const ProviderDashboard()),
+      );
+    } on FirebaseAuthException catch (e) {
+      String message = "Error occurred";
+      if (e.code == 'email-already-in-use') {
+        message = "Provider ID already exists";
+      } else if (e.code == 'weak-password') {
+        message = "Password should be at least 6 characters";
+      } else if (e.message != null) {
+        message = e.message!;
       }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message)),
+      );
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text("Error: $e")),

@@ -31,23 +31,40 @@ class _ProviderLoginScreenState extends State<ProviderLoginScreen> {
     try {
       setState(() => _loading = true);
 
+      // Create dummy email for login — must match signup domain
       final fakeEmail = "$id@simplemeals.fake";
+
+      // Sign in with Firebase Auth
       final userCredential = await FirebaseAuth.instance
           .signInWithEmailAndPassword(email: fakeEmail, password: password);
 
       final uid = userCredential.user!.uid;
-      final snapshot =
-          await FirebaseFirestore.instance.collection('users').doc(uid).get();
+
+      // Fetch provider record from Firestore (users collection)
+      final snapshot = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(uid)
+          .get();
 
       if (!snapshot.exists) {
         throw Exception("User record not found in Firestore.");
       }
 
-      final role = snapshot['role'];
-      if (role != 'provider') {
+      final data = snapshot.data();
+
+      final roleValue = (data != null)
+          ? (data['role'] ?? data['type'] ?? data['userType'] ?? null)
+          : null;
+
+      if (roleValue == null) {
+        throw Exception("User role not set.");
+      }
+
+      if (roleValue != 'provider') {
         throw Exception("You are not registered as a Provider.");
       }
 
+      // Successful login → Go to provider dashboard
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (_) => const ProviderDashboard()),

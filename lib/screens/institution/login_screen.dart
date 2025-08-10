@@ -1,9 +1,72 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 import 'package:simplemeals/screens/institution/institution_dashboard.dart';
 import 'package:simplemeals/screens/institution/signup_screen.dart';
 
-class InstitutionLoginScreen extends StatelessWidget {
+class InstitutionLoginScreen extends StatefulWidget {
   const InstitutionLoginScreen({super.key});
+
+  @override
+  State<InstitutionLoginScreen> createState() => _InstitutionLoginScreenState();
+}
+
+class _InstitutionLoginScreenState extends State<InstitutionLoginScreen> {
+  final _idController = TextEditingController();
+  final _passwordController = TextEditingController();
+  bool _loading = false;
+
+  Future<void> _login() async {
+    final id = _idController.text.trim();
+    final password = _passwordController.text.trim();
+
+    if (id.isEmpty || password.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Please enter both ID and password")),
+      );
+      return;
+    }
+
+    setState(() => _loading = true);
+    final fakeEmail = "$id@simplemeals.fake";
+
+    try {
+      final userCredential = await FirebaseAuth.instance
+          .signInWithEmailAndPassword(email: fakeEmail, password: password);
+
+      final uid = userCredential.user!.uid;
+
+      final snapshot =
+          await FirebaseFirestore.instance.collection('users').doc(uid).get();
+
+      if (!snapshot.exists) {
+        throw Exception("User record not found in Firestore.");
+      }
+
+      final data = snapshot.data();
+      final role = data?['role'] ?? data?['type'] ?? null;
+
+      if (role != 'institute') {
+        throw Exception("You are not registered as an Institution.");
+      }
+
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => const InstitutionDashboard()),
+      );
+    } on FirebaseAuthException catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.message ?? "Login failed")),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.toString())),
+      );
+    } finally {
+      setState(() => _loading = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -51,9 +114,9 @@ class InstitutionLoginScreen extends StatelessWidget {
                             ),
                           ),
                           const SizedBox(height: 30),
-                          _labeledInput(label: 'Institution ID'),
+                          _labeledInput(label: 'Institution ID', controller: _idController),
                           const SizedBox(height: 20),
-                          _labeledInput(label: 'Password', obscureText: true),
+                          _labeledInput(label: 'Password', obscureText: true, controller: _passwordController),
                           const SizedBox(height: 30),
                           _actionButtons(context, constraints.maxWidth),
                         ],
@@ -69,30 +132,20 @@ class InstitutionLoginScreen extends StatelessWidget {
     );
   }
 
-  Widget _labeledInput({required String label, bool obscureText = false}) {
+  Widget _labeledInput({required String label, bool obscureText = false, TextEditingController? controller}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          label,
-          style: const TextStyle(
-            fontWeight: FontWeight.bold,
-            color: Colors.black87,
-            fontSize: 16,
-          ),
-        ),
+        Text(label, style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.black87, fontSize: 16)),
         const SizedBox(height: 8),
         TextField(
+          controller: controller,
           obscureText: obscureText,
           decoration: InputDecoration(
             filled: true,
             fillColor: Colors.white,
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(30.0),
-              borderSide: BorderSide.none,
-            ),
-            contentPadding:
-                const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(30.0), borderSide: BorderSide.none),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           ),
         ),
       ],
@@ -113,13 +166,14 @@ class InstitutionLoginScreen extends StatelessWidget {
             borderRadius: BorderRadius.circular(40.0),
           ),
         ),
-        onPressed: () {
-                  Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => const InstitutionDashboard()),
-          );
-        },
-        child: const Text('Sign In!', style: TextStyle(fontSize: 16)),
+        onPressed: _loading ? null : _login,
+        child: _loading
+            ? const SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
+            : const Text('Sign In!', style: TextStyle(fontSize: 16)),
       ),
     );
 
