@@ -2,15 +2,17 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter_gemini/flutter_gemini.dart';
 import 'package:simplemeals/screens/institution/institution_dashboard.dart';
 import 'package:simplemeals/screens/provider/provider_dashboard.dart';
 import 'package:simplemeals/screens/student/student_dashboard.dart';
-
 import 'landing_page.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp();
+  // Initialize Gemini with your API key
+  Gemini.init(apiKey: "");
   runApp(const MyApp());
 }
 
@@ -50,8 +52,8 @@ class AuthWrapper extends StatelessWidget {
           .doc(user.uid)
           .get();
 
-      if (!snap.exists || !snap.data()!.toString().contains('role')) {
-        // No role found → go to landing
+      if (!snap.exists || !(snap.data() as Map<String, dynamic>).containsKey('role')) {
+        // No role found -> go to landing
         return const LandingPage();
       }
 
@@ -68,6 +70,7 @@ class AuthWrapper extends StatelessWidget {
           return const LandingPage();
       }
     } catch (e) {
+      // ignore: avoid_print
       print("Error fetching user role: $e");
       return const LandingPage();
     }

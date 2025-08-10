@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/services.dart';
+import 'package:simplemeals/screens/provider/provider_dashboard.dart';
 
 class InventoryScreen extends StatefulWidget {
   const InventoryScreen({super.key});
@@ -22,7 +24,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
   Future<void> _fetchInventory() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
-      setState(() => _isLoading = false);
+      if (mounted) setState(() => _isLoading = false);
       return;
     }
 
@@ -41,26 +43,103 @@ class _InventoryScreenState extends State<InventoryScreen> {
     } catch (e) {
       // ignore: avoid_print
       print("Error fetching inventory: $e");
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
-  Future<void> _addItemToInventory(String itemName, String quantity) async {
+  Future<void> _updateInventoryItem(String itemName, String quantity) async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null || itemName.isEmpty || quantity.isEmpty) return;
 
     final providerRef =
         FirebaseFirestore.instance.collection('providers').doc(user.uid);
 
-    // Using dot notation to update a field within a map
-    await providerRef.update({
-      'inventory.$itemName': quantity,
-    });
-
-    // Refresh the local state to show the new item
+    await providerRef.update({'inventory.$itemName': quantity});
     _fetchInventory();
+  }
+
+  Future<void> _deleteInventoryItem(String itemName) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    final providerRef =
+        FirebaseFirestore.instance.collection('providers').doc(user.uid);
+
+    await providerRef.update({'inventory.$itemName': FieldValue.delete()});
+    _fetchInventory();
+  }
+
+  void _showEditItemDialog(String currentItemName, String currentQuantity) {
+    final TextEditingController quantityController =
+        TextEditingController(text: currentQuantity);
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: Text('Edit "$currentItemName"'),
+          content: TextField(
+            controller: quantityController,
+            keyboardType: TextInputType.number,
+            inputFormatters: <TextInputFormatter>[
+              FilteringTextInputFormatter.digitsOnly
+            ],
+            decoration:
+                const InputDecoration(labelText: 'Quantity (e.g., 100)'),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                _showDeleteConfirmationDialog(currentItemName);
+              },
+              child: const Text('Delete', style: TextStyle(color: Colors.red)),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                final newQuantity = "${quantityController.text.trim()} meals";
+                _updateInventoryItem(
+                  currentItemName,
+                  newQuantity,
+                );
+                Navigator.of(context).pop();
+              },
+              child: const Text('Save'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+  
+  void _showDeleteConfirmationDialog(String itemName) {
+    showDialog(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        return AlertDialog(
+          title: const Text('Confirm Deletion'),
+          content: Text('Are you sure you want to delete "$itemName"? This action cannot be undone.'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+              onPressed: () {
+                _deleteInventoryItem(itemName);
+                Navigator.of(dialogContext).pop();
+                Navigator.of(context).pop();
+              },
+              child: const Text('Delete'),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   void _showAddItemDialog() {
@@ -81,8 +160,12 @@ class _InventoryScreenState extends State<InventoryScreen> {
               ),
               TextField(
                 controller: quantityController,
+                keyboardType: TextInputType.number,
+                inputFormatters: <TextInputFormatter>[
+                  FilteringTextInputFormatter.digitsOnly
+                ],
                 decoration: const InputDecoration(
-                    labelText: 'Quantity (e.g., 100 meals)'),
+                    labelText: 'Quantity (e.g., 100)'),
               ),
             ],
           ),
@@ -93,9 +176,10 @@ class _InventoryScreenState extends State<InventoryScreen> {
             ),
             ElevatedButton(
               onPressed: () {
-                _addItemToInventory(
+                final newQuantity = "${quantityController.text.trim()} meals";
+                _updateInventoryItem(
                   itemController.text.trim(),
-                  quantityController.text.trim(),
+                  newQuantity,
                 );
                 Navigator.of(context).pop();
               },
@@ -116,8 +200,13 @@ class _InventoryScreenState extends State<InventoryScreen> {
         elevation: 0,
         toolbarHeight: 80,
         leading: IconButton(
-          icon: const Icon(Icons.menu, color: Colors.black87, size: 30),
-          onPressed: () {},
+          icon: const Icon(Icons.arrow_back, color: Colors.black87, size: 30),
+          onPressed: () {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (context) => const ProviderDashboard()),
+            );
+          },
         ),
         title: const Center(
           child: Text(
@@ -152,11 +241,17 @@ class _InventoryScreenState extends State<InventoryScreen> {
                   children: _inventory.entries.map((entry) {
                     final isAvailable =
                         !entry.value.toString().toLowerCase().contains('unavail');
+                    String subtitleText = entry.value;
+                    if (isAvailable) {
+                      final amount = entry.value.replaceAll(RegExp(r'[^0-9]'), '');
+                      subtitleText = 'Available: $amount';
+                    }
                     return _buildInventoryItemCard(
                       title: entry.key,
-                      subtitle: entry.value,
+                      subtitle: subtitleText,
                       subtitleColor: isAvailable ? Colors.green : Colors.red,
                       imageColor: Colors.grey[200]!,
+                      onTap: () => _showEditItemDialog(entry.key, entry.value.replaceAll(RegExp(r'[^0-9]'), '')),
                     );
                   }).toList(),
                 ),
@@ -173,48 +268,52 @@ class _InventoryScreenState extends State<InventoryScreen> {
     required String subtitle,
     required Color subtitleColor,
     required Color imageColor,
+    required VoidCallback onTap,
   }) {
-    return Card(
-      color: const Color.fromARGB(255, 246, 255, 245),
-      elevation: 0,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      margin: const EdgeInsets.only(bottom: 16),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Row(
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
+    return GestureDetector(
+      onTap: onTap,
+      child: Card(
+        color: const Color.fromARGB(255, 246, 255, 245),
+        elevation: 0,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        margin: const EdgeInsets.only(bottom: 16),
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    subtitle,
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: subtitleColor,
+                    const SizedBox(height: 4),
+                    Text(
+                      subtitle,
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: subtitleColor,
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
-            const SizedBox(width: 16),
-            Container(
-              width: 60,
-              height: 60,
-              decoration: BoxDecoration(
-                color: imageColor,
-                borderRadius: BorderRadius.circular(15),
+              const SizedBox(width: 16),
+              Container(
+                width: 60,
+                height: 60,
+                decoration: BoxDecoration(
+                  color: imageColor,
+                  borderRadius: BorderRadius.circular(15),
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

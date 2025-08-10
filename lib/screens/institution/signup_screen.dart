@@ -38,62 +38,77 @@ class _SignUpScreenState extends State<SignUpScreen> {
       return;
     }
 
+    // --- New Validation Logic ---
+    final totalInt = int.tryParse(total) ?? 0;
+    final vegInt = int.tryParse(veg) ?? 0;
+    final nonVegInt = int.tryParse(nonVeg) ?? 0;
+
+    if (totalInt < vegInt + nonVegInt) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text(
+                'Total students cannot be less than the sum of veg and non-veg students.')),
+      );
+      return;
+    }
+    // --- End of New Validation ---
+
     setState(() => _isLoading = true);
     final dummyEmail = "$id@simplemeals.fake";
 
+    UserCredential? uc; // Declare UserCredential outside the try block
+
     try {
-      // Step 1: Create the user in Firebase Authentication first.
-      // This cannot be done inside a Firestore transaction.
-      UserCredential uc = await FirebaseAuth.instance
+      // Step 1: Find the provider's UID by querying the 'users' collection.
+      final providerQuery = await FirebaseFirestore.instance
+          .collection('users')
+          .where('role', isEqualTo: 'provider')
+          .where('providerId', isEqualTo: providerId)
+          .limit(1)
+          .get();
+
+      if (providerQuery.docs.isEmpty) {
+        throw Exception('Provider with this ID does not exist.');
+      }
+      
+      final providerUid = providerQuery.docs.first.id;
+
+      // Step 2: Create the user in Firebase Authentication.
+      uc = await FirebaseAuth.instance
           .createUserWithEmailAndPassword(email: dummyEmail, password: password);
       final uid = uc.user!.uid;
 
-      // Step 2: Run all Firestore writes in a single, atomic transaction.
+      // Step 3: Run all Firestore writes in a single, atomic transaction.
       await FirebaseFirestore.instance.runTransaction((transaction) async {
-        final providerRef = FirebaseFirestore.instance.collection('providers').doc(providerId);
+        final providerRef = FirebaseFirestore.instance.collection('providers').doc(providerUid);
         final userRef = FirebaseFirestore.instance.collection('users').doc(uid);
         final instituteRef = FirebaseFirestore.instance.collection('institutes').doc(uid);
 
-        // Read the provider document to check for existence and get the current count.
-        final providerDoc = await transaction.get(providerRef);
-        if (!providerDoc.exists) {
-          // If the provider doesn't exist, throw an error to cancel the transaction.
-          throw Exception('Provider with this ID does not exist.');
-        }
-
-        // Write the new user document.
         transaction.set(userRef, {
           'role': 'institute',
           'userId': id,
           'email': dummyEmail,
           'name': name,
-          'totalStudents': int.tryParse(total) ?? 0,
-          'vegStudents': int.tryParse(veg) ?? 0,
-          'nonVegStudents': int.tryParse(nonVeg) ?? 0,
+          'totalStudents': totalInt,
+          'vegStudents': vegInt,
+          'nonVegStudents': nonVegInt,
           'uid': uid,
-          'providerId': providerId,
+          'providerId': providerUid, // Store the actual UID of the provider
         });
 
-        // Write the new institute document.
         transaction.set(instituteRef, {
           'profile': {
             'name': name,
-            'totalStudents': int.tryParse(total) ?? 0,
-            'vegStudents': int.tryParse(veg) ?? 0,
-            'nonVegStudents': int.tryParse(nonVeg) ?? 0,
-            'providerId': providerId,
+            'totalStudents': totalInt,
+            'vegStudents': vegInt,
+            'nonVegStudents': nonVegInt,
+            'providerId': providerUid, // Store the actual UID of the provider
           },
           'dailyMenu': {},
           'confirmations': {},
         });
-        
-        // Get the current institution count, defaulting to 0 if it doesn't exist.
-        final currentCount = providerDoc.data()?['institutionCount'] ?? 0;
-        // Update the provider's document with the new count.
-        transaction.update(providerRef, {'institutionCount': currentCount + 1});
       });
 
-      // If the transaction completes successfully, navigate to the dashboard.
       if (mounted) {
         Navigator.pushReplacement(
           context,
@@ -108,7 +123,11 @@ class _SignUpScreenState extends State<SignUpScreen> {
       }
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: ${e.toString()}')));
+      // **CLEANUP STEP**: If Firestore operations fail, delete the created Auth user.
+      if (uc != null) {
+        await uc.user?.delete();
+      }
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: ${e.toString().replaceFirst("Exception: ", "")}')));
     } finally {
       if(mounted) {
         setState(() => _isLoading = false);
@@ -125,6 +144,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
         TextField(
           controller: controller,
           obscureText: obscureText,
+          keyboardType: label.toLowerCase().contains('no. of') ? TextInputType.number : TextInputType.text,
           decoration: InputDecoration(
             filled: true,
             fillColor: Colors.white,

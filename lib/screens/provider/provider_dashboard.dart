@@ -14,6 +14,7 @@ class ProviderDashboard extends StatefulWidget {
 class _ProviderDashboardState extends State<ProviderDashboard> {
   String? _providerName;
   int? _institutionCount;
+  Map<String, dynamic> _inventoryPreview = {};
   bool _isLoading = true;
 
   @override
@@ -25,25 +26,25 @@ class _ProviderDashboardState extends State<ProviderDashboard> {
   Future<void> _fetchProviderData() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
-      // Handle user not logged in case
-      setState(() => _isLoading = false);
+      if (mounted) setState(() => _isLoading = false);
       return;
     }
 
     try {
-      // Fetch both documents concurrently
       final userDocFuture = FirebaseFirestore.instance.collection('users').doc(user.uid).get();
       final providerDocFuture = FirebaseFirestore.instance.collection('providers').doc(user.uid).get();
 
       final results = await Future.wait([userDocFuture, providerDocFuture]);
       
-      final userDoc = results[0] ;
-      final providerDoc = results[1];
+      final userDoc = results[0] as DocumentSnapshot<Map<String, dynamic>>;
+      final providerDoc = results[1] as DocumentSnapshot<Map<String, dynamic>>;
 
       if (mounted) {
+        final Map<String, dynamic> fullInventory = Map<String, dynamic>.from(providerDoc.data()?['inventory'] ?? {});
         setState(() {
           _providerName = userDoc.data()?['providerId'] ?? 'Provider';
           _institutionCount = providerDoc.data()?['institutionCount'] ?? 0;
+          _inventoryPreview = Map<String, dynamic>.fromEntries(fullInventory.entries.take(2));
           _isLoading = false;
         });
       }
@@ -60,6 +61,119 @@ class _ProviderDashboardState extends State<ProviderDashboard> {
     }
   }
 
+  Future<void> _signOut() async {
+    try {
+      await FirebaseAuth.instance.signOut();
+      if (mounted) {
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (context) => const LandingPage()),
+          (Route<dynamic> route) => false,
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error signing out: $e')),
+      );
+    }
+  }
+
+  void _showLogoutConfirmationDialog() {
+    showDialog(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        return AlertDialog(
+          title: const Text('Confirm Logout'),
+          content: const Text('Are you sure you want to log out?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+              onPressed: () {
+                Navigator.of(dialogContext).pop();
+                _signOut();
+              },
+              child: const Text('Logout'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _linkInstitution(String institutionId) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null || institutionId.isEmpty) return;
+
+    setState(() => _isLoading = true);
+
+    try {
+      await FirebaseFirestore.instance.runTransaction((transaction) async {
+        final providerRef = FirebaseFirestore.instance.collection('providers').doc(user.uid);
+        final institutionRef = FirebaseFirestore.instance.collection('institutes').doc(institutionId);
+
+        final institutionDoc = await transaction.get(institutionRef);
+        if (!institutionDoc.exists) {
+          throw Exception('Institution with this ID does not exist.');
+        }
+
+        final institutionProviderId = institutionDoc.data()?['profile']?['providerId'];
+        if (institutionProviderId != user.uid) {
+          throw Exception('This institution is not linked to your provider account.');
+        }
+        
+        final providerDoc = await transaction.get(providerRef);
+        final currentCount = providerDoc.data()?['institutionCount'] ?? 0;
+        transaction.update(providerRef, {'institutionCount': currentCount + 1});
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Institution linked successfully!'), backgroundColor: Colors.green),
+      );
+      await _fetchProviderData();
+
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error: ${e.toString().replaceFirst("Exception: ", "")}'), backgroundColor: Colors.red),
+      );
+    } finally {
+      if(mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  void _showAddSchoolDialog() {
+    final TextEditingController institutionIdController = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Link an Institution'),
+          content: TextField(
+            controller: institutionIdController,
+            decoration: const InputDecoration(labelText: 'Enter Institution ID'),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                _linkInstitution(institutionIdController.text.trim());
+                Navigator.of(context).pop();
+              },
+              child: const Text('Add'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     const newColor = Color.fromARGB(255, 226, 255, 226);
@@ -72,12 +186,7 @@ class _ProviderDashboardState extends State<ProviderDashboard> {
         toolbarHeight: 80,
         leading: IconButton(
           icon: const Icon(Icons.menu, color: Colors.black87, size: 30),
-          onPressed: () {
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(builder: (context) => const LandingPage()),
-            );
-          },
+          onPressed: _showLogoutConfirmationDialog,
         ),
         title: const Center(
           child: Text(
@@ -158,22 +267,25 @@ class _ProviderDashboardState extends State<ProviderDashboard> {
   }
 
   Widget _buildAddSchoolCard(Color cardColor) {
-    return Card(
-      color: cardColor,
-      elevation: 0,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      child: const Padding(
-        padding: EdgeInsets.symmetric(horizontal: 16, vertical: 24),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.add_circle_outline, size: 32, color: Colors.black87),
-            SizedBox(width: 15),
-            Text(
-              'Add a\nschool',
-              style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
-            ),
-          ],
+    return GestureDetector(
+      onTap: _showAddSchoolDialog,
+      child: Card(
+        color: cardColor,
+        elevation: 0,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        child: const Padding(
+          padding: EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.add_circle_outline, size: 32, color: Colors.black87),
+              SizedBox(width: 15),
+              Text(
+                'Add a\nschool',
+                style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -235,23 +347,36 @@ class _ProviderDashboardState extends State<ProviderDashboard> {
             padding: const EdgeInsets.all(16),
             child: Column(
               children: [
-                _inventoryItem(
-                  'Rice & Curry',
-                  'Available: 100 meals',
-                  Colors.green,
-                  Colors.orange[200]!,
-                ),
-                const Divider(height: 24),
-                _inventoryItem(
-                  'Eggs',
-                  'Unavailable: Refill',
-                  Colors.red,
-                  Colors.yellow[200]!,
-                ),
+                if (_inventoryPreview.isEmpty)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 32.0),
+                    child: Text(
+                      'Your inventory is empty.',
+                      style: TextStyle(color: Colors.black54),
+                    ),
+                  )
+                else
+                  ..._inventoryPreview.entries.map((entry) {
+                    final isAvailable = !entry.value.toString().toLowerCase().contains('unavail');
+                    String subtitleText = entry.value;
+                    if (isAvailable) {
+                      final amount = entry.value.replaceAll(RegExp(r'[^0-9]'), '');
+                      subtitleText = 'Available: $amount';
+                    }
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 8.0),
+                      child: _inventoryItem(
+                        entry.key,
+                        subtitleText,
+                        isAvailable ? Colors.green : Colors.red,
+                        Colors.grey[200]!,
+                      ),
+                    );
+                  }).toList(),
                 const SizedBox(height: 12),
                 Center(
                   child: GestureDetector(
-                    onTap: () => Navigator.pushReplacement(
+                    onTap: () => Navigator.push(
                       context,
                       MaterialPageRoute(
                         builder: (context) => const InventoryScreen(),
@@ -353,7 +478,7 @@ class _ProviderDashboardState extends State<ProviderDashboard> {
                     const SizedBox(width: 8),
                     const Expanded(
                       child: Text(
-                        '15% more or 310 students attended school yesterday than the day before.',
+                        '0% more or 0 students attended school yesterday than the day before.',
                         style: TextStyle(color: Colors.black87),
                       ),
                     ),
@@ -382,12 +507,12 @@ class _ProviderDashboardState extends State<ProviderDashboard> {
                           ),
                         ),
                         const SizedBox(height: 16),
-                        _feedbackItem(
-                          'School ABC has requested for one more egg per meal instead of a fruit.',
-                        ),
-                        const Divider(height: 24),
-                        _feedbackItem(
-                          'School XYZ requires 44 more meals from next Tuesday.',
+                        // This would also be fetched from your database
+                        const Center(
+                          child: Padding(
+                            padding: EdgeInsets.all(8.0),
+                            child: Text('No feedback available.', style: TextStyle(color: Colors.grey)),
+                          ),
                         ),
                       ],
                     ),

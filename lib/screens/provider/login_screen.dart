@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-
 import 'package:simplemeals/screens/provider/provider_dashboard.dart';
 import 'package:simplemeals/screens/provider/signup_screen.dart';
 
@@ -28,57 +27,56 @@ class _ProviderLoginScreenState extends State<ProviderLoginScreen> {
       return;
     }
 
+    setState(() => _loading = true);
+
     try {
-      setState(() => _loading = true);
-
-      // Create dummy email for login — must match signup domain
-      final fakeEmail = "$id@simplemeals.fake";
-
-      // Sign in with Firebase Auth
-      final userCredential = await FirebaseAuth.instance
-          .signInWithEmailAndPassword(email: fakeEmail, password: password);
-
-      final uid = userCredential.user!.uid;
-
-      // Fetch provider record from Firestore (users collection)
-      final snapshot = await FirebaseFirestore.instance
+      // Step 1: Find the user by their providerId first.
+      final querySnapshot = await FirebaseFirestore.instance
           .collection('users')
-          .doc(uid)
+          .where('role', isEqualTo: 'provider')
+          .where('providerId', isEqualTo: id)
+          .limit(1)
           .get();
 
-      if (!snapshot.exists) {
-        throw Exception("User record not found in Firestore.");
+      if (querySnapshot.docs.isEmpty) {
+        throw Exception("No provider found with this ID.");
       }
 
-      final data = snapshot.data();
+      // Step 2: Get the real email from the document.
+      final userDoc = querySnapshot.docs.first;
+      final email = userDoc.data()['email'] as String?;
 
-      final roleValue = (data != null)
-          ? (data['role'] ?? data['type'] ?? data['userType'] ?? null)
-          : null;
-
-      if (roleValue == null) {
-        throw Exception("User role not set.");
+      if (email == null) {
+        throw Exception("User record is corrupted (missing email).");
       }
 
-      if (roleValue != 'provider') {
-        throw Exception("You are not registered as a Provider.");
-      }
+      // Step 3: Sign in with the fetched email.
+      await FirebaseAuth.instance
+          .signInWithEmailAndPassword(email: email, password: password);
 
       // Successful login → Go to provider dashboard
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const ProviderDashboard()),
-      );
+      if (mounted) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const ProviderDashboard()),
+        );
+      }
     } on FirebaseAuthException catch (e) {
+      String message = "Login failed. Please check your credentials.";
+      if (e.code == 'wrong-password' || e.code == 'user-not-found') {
+         message = "Invalid ID or password.";
+      }
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.message ?? "Login failed")),
+        SnackBar(content: Text(message)),
       );
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.toString())),
+        SnackBar(content: Text(e.toString().replaceFirst("Exception: ", ""))),
       );
     } finally {
-      setState(() => _loading = false);
+      if (mounted) {
+        setState(() => _loading = false);
+      }
     }
   }
 

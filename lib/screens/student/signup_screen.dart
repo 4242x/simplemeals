@@ -17,8 +17,8 @@ class _SignUpScreenState extends State<SignUpScreen> {
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _institutionIdController = TextEditingController();
   final TextEditingController _ageController = TextEditingController();
-  final TextEditingController _prefController = TextEditingController();
-
+  
+  String? _selectedPreference;
   bool _isLoading = false;
 
   Future<void> _signUpStudent() async {
@@ -27,9 +27,9 @@ class _SignUpScreenState extends State<SignUpScreen> {
     final name = _nameController.text.trim();
     final institutionId = _institutionIdController.text.trim();
     final age = _ageController.text.trim();
-    final pref = _prefController.text.trim();
+    final pref = _selectedPreference;
 
-    if (id.isEmpty || password.isEmpty || name.isEmpty || institutionId.isEmpty) {
+    if (id.isEmpty || password.isEmpty || name.isEmpty || institutionId.isEmpty || pref == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please fill all required fields')),
       );
@@ -38,58 +38,58 @@ class _SignUpScreenState extends State<SignUpScreen> {
 
     setState(() => _isLoading = true);
     final dummyEmail = "$id@simplemeals.fake";
+    UserCredential? uc;
 
     try {
-      // Step 1: Create the user in Firebase Auth. This must be done outside the transaction.
-      UserCredential uc = await FirebaseAuth.instance
+      final institutionQuery = await FirebaseFirestore.instance
+          .collection('users')
+          .where('role', isEqualTo: 'institute')
+          .where('userId', isEqualTo: institutionId)
+          .limit(1)
+          .get();
+
+      if (institutionQuery.docs.isEmpty) {
+        throw Exception('Institution with this ID does not exist.');
+      }
+      
+      final institutionUid = institutionQuery.docs.first.id;
+
+      uc = await FirebaseAuth.instance
           .createUserWithEmailAndPassword(email: dummyEmail, password: password);
       final uid = uc.user!.uid;
 
-      // Step 2: Run all Firestore writes in a single, atomic transaction.
       await FirebaseFirestore.instance.runTransaction((transaction) async {
-        final institutionRef = FirebaseFirestore.instance.collection('institutes').doc(institutionId);
+        final institutionRef = FirebaseFirestore.instance.collection('institutes').doc(institutionUid);
         final userRef = FirebaseFirestore.instance.collection('users').doc(uid);
         final studentRef = FirebaseFirestore.instance.collection('students').doc(uid);
 
-        // Read the institution document to verify it exists and get the student count.
         final institutionDoc = await transaction.get(institutionRef);
         if (!institutionDoc.exists) {
-          // If the institution doesn't exist, cancel the transaction.
-          throw Exception('Institution with this ID does not exist.');
+          throw Exception('Institution data not found.');
         }
 
-        // Write the new user document.
         transaction.set(userRef, {
           'role': 'student',
           'userId': id,
           'email': dummyEmail,
           'name': name,
-          'instituteId': institutionId, // Save the link
+          'instituteId': institutionUid,
           'age': int.tryParse(age) ?? null,
           'preference': pref,
           'uid': uid,
         });
 
-        // Write the new student document.
         transaction.set(studentRef, {
           'profile': {
             'name': name,
-            'instituteId': institutionId, // Save the link
+            'instituteId': institutionUid,
             'age': int.tryParse(age) ?? null,
             'preference': pref,
           },
           'attendance': {},
         });
-
-        // Get the current student count from the institution's profile.
-        final profileData = institutionDoc.data()?['profile'] as Map<String, dynamic>? ?? {};
-        final currentCount = profileData['totalStudents'] ?? 0;
-        
-        // Update the institution's profile with the new student count.
-        transaction.update(institutionRef, {'profile.totalStudents': currentCount + 1});
       });
 
-      // If the transaction is successful, navigate to the dashboard.
       if (mounted) {
         Navigator.pushReplacement(
           context,
@@ -101,7 +101,10 @@ class _SignUpScreenState extends State<SignUpScreen> {
       if (e.code == 'email-already-in-use') message = 'User ID already exists';
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: ${e.toString()}')));
+      if (uc != null) {
+        await uc.user?.delete();
+      }
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: ${e.toString().replaceFirst("Exception: ", "")}')));
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);
@@ -118,12 +121,48 @@ class _SignUpScreenState extends State<SignUpScreen> {
         TextField(
           controller: controller,
           obscureText: obscureText,
+          keyboardType: label.toLowerCase().contains('age') ? TextInputType.number : TextInputType.text,
           decoration: InputDecoration(
             filled: true,
             fillColor: Colors.white,
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(30.0), borderSide: BorderSide.none),
             contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildPreferenceDropdown() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text('Select food preference', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black87, fontSize: 16)),
+        const SizedBox(height: 8),
+        DropdownButtonFormField<String>(
+          value: _selectedPreference,
+          isExpanded: true,
+          decoration: InputDecoration(
+            filled: true,
+            fillColor: Colors.white,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(30.0),
+              borderSide: BorderSide.none,
+            ),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          ),
+          hint: const Text('Select Preference'),
+          items: ['Veg', 'Non-Veg'].map((String value) {
+            return DropdownMenuItem<String>(
+              value: value,
+              child: Text(value),
+            );
+          }).toList(),
+          onChanged: (newValue) {
+            setState(() {
+              _selectedPreference = newValue;
+            });
+          },
         ),
       ],
     );
@@ -186,7 +225,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                           const SizedBox(height: 20),
                           _labeledInput(label: 'Age', controller: _ageController),
                           const SizedBox(height: 20),
-                          _labeledInput(label: 'Select food preference', controller: _prefController),
+                          _buildPreferenceDropdown(),
                           const SizedBox(height: 30),
                           _actionButtons(context, constraints.maxWidth),
                           if (_isLoading)

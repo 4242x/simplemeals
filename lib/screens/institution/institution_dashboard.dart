@@ -1,8 +1,106 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:simplemeals/landing_page.dart';
+import 'package:simplemeals/screens/institution/institution_account_screen.dart';
+import 'package:simplemeals/screens/institution/menu_planner_screen.dart';
 
-class InstitutionDashboard extends StatelessWidget {
+class InstitutionDashboard extends StatefulWidget {
   const InstitutionDashboard({super.key});
+
+  @override
+  State<InstitutionDashboard> createState() => _InstitutionDashboardState();
+}
+
+class _InstitutionDashboardState extends State<InstitutionDashboard> {
+  String? _institutionName;
+  int _studentCount = 0;
+  Map<String, dynamic> _todaysMenu = {};
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchInstitutionData();
+  }
+
+  Future<void> _fetchInstitutionData() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      if (mounted) setState(() => _isLoading = false);
+      return;
+    }
+
+    try {
+      final userDocFuture = FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+      final instituteDocFuture = FirebaseFirestore.instance.collection('institutes').doc(user.uid).get();
+
+      final results = await Future.wait([userDocFuture, instituteDocFuture]);
+      final userDoc = results[0] as DocumentSnapshot<Map<String, dynamic>>;
+      final instituteDoc = results[1] as DocumentSnapshot<Map<String, dynamic>>;
+
+      if (mounted) {
+        setState(() {
+          _institutionName = userDoc.data()?['name'] ?? 'Institution';
+          _studentCount = instituteDoc.data()?['profile']?['totalStudents'] ?? 0;
+          _todaysMenu = instituteDoc.data()?['dailyMenu'] ?? {};
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      // ignore: avoid_print
+      print("Error fetching institution data: $e");
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _institutionName = "Error";
+        });
+      }
+    }
+  }
+
+  Future<void> _signOut() async {
+    try {
+      await FirebaseAuth.instance.signOut();
+      if (mounted) {
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (context) => const LandingPage()),
+          (Route<dynamic> route) => false,
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error signing out: $e')),
+      );
+    }
+  }
+
+  void _showLogoutConfirmationDialog() {
+    showDialog(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        return AlertDialog(
+          title: const Text('Confirm Logout'),
+          content: const Text('Are you sure you want to log out?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+              onPressed: () {
+                Navigator.of(dialogContext).pop();
+                _signOut();
+              },
+              child: const Text('Logout'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
 
   @override
   Widget build(BuildContext context) {
@@ -16,17 +114,10 @@ class InstitutionDashboard extends StatelessWidget {
         toolbarHeight: 80,
         leading: IconButton(
           icon: const Icon(Icons.menu, color: Colors.black87, size: 30),
-          onPressed: () {
-            {
-              Navigator.pushReplacement(
-                context,
-                MaterialPageRoute(builder: (context) => const LandingPage()),
-              );
-            }
-          },
+          onPressed: _showLogoutConfirmationDialog,
         ),
-        title: Center(
-          child: const Text(
+        title: const Center(
+          child: Text(
             'SimpleMeals',
             style: TextStyle(
               fontSize: 24,
@@ -38,21 +129,28 @@ class InstitutionDashboard extends StatelessWidget {
         actions: [
           IconButton(
             icon: const Icon(Icons.person, color: Colors.black87, size: 30),
-            onPressed: () {},
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const InstitutionAccountScreen()),
+              );
+            },
           ),
           const SizedBox(width: 8),
         ],
       ),
-      body: ListView(
-        padding: const EdgeInsets.all(16.0),
-        children: [
-          _buildWelcomeCard(newColor),
-          const SizedBox(height: 20),
-          _buildTopSection(newColor),
-          const SizedBox(height: 20),
-          _buildInsightsAndFeedbackCard(),
-        ],
-      ),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : ListView(
+              padding: const EdgeInsets.all(16.0),
+              children: [
+                _buildWelcomeCard(newColor),
+                const SizedBox(height: 20),
+                _buildTodaysMenuCard(),
+                const SizedBox(height: 20),
+                _buildInsightsAndFeedbackCard(),
+              ],
+            ),
     );
   }
 
@@ -61,19 +159,19 @@ class InstitutionDashboard extends StatelessWidget {
       color: cardColor,
       elevation: 0,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      child: const Padding(
-        padding: EdgeInsets.all(24.0),
+      child: Padding(
+        padding: const EdgeInsets.all(24.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Hello, BJT School',
-              style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
+              'Hello, $_institutionName.',
+              style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
             ),
-            SizedBox(height: 8),
+            const SizedBox(height: 8),
             Text(
-              'You will be receiving meals for 312 students tomorrow. Please appropriately prepare and ensure proper distribution.',
-              style: TextStyle(fontSize: 16, color: Colors.black54),
+              'You will be receiving meals for $_studentCount students tomorrow. Please appropriately prepare and ensure proper distribution.',
+              style: const TextStyle(fontSize: 16, color: Colors.black54),
             ),
           ],
         ),
@@ -81,11 +179,7 @@ class InstitutionDashboard extends StatelessWidget {
     );
   }
 
-  Widget _buildTopSection(Color cardColor) {
-    return Expanded(flex: 3, child: _buildInventoryCard());
-  }
-
-  Widget _buildInventoryCard() {
+  Widget _buildTodaysMenuCard() {
     return Card(
       clipBehavior: Clip.antiAlias,
       elevation: 0,
@@ -114,24 +208,29 @@ class InstitutionDashboard extends StatelessWidget {
               padding: const EdgeInsets.symmetric(vertical: 0, horizontal: 8),
               child: Column(
                 children: [
-                  _inventoryItem(
-                    'Rice & Curry',
-                    'Available: 100 meals',
-                    Colors.green,
-                    Colors.orange[200]!,
-                  ),
-                  const Divider(height: 24),
-                  _inventoryItem(
-                    'Eggs',
-                    'Unavailable: Refill',
-                    Colors.red,
-                    Colors.yellow[200]!,
-                  ),
+                  if (_todaysMenu.isEmpty)
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 24.0),
+                      child: Text('No menu set for today.', style: TextStyle(color: Colors.grey)),
+                    )
+                  else
+                  ..._todaysMenu.entries.map((entry) {
+                    return _menuItem(entry.key, entry.value);
+                  }).toList(),
                   const SizedBox(height: 12),
-                  const Center(
-                    child: Text(
-                      'Click to access →',
-                      style: TextStyle(color: Colors.black54, fontSize: 12),
+                  Center(
+                    child: GestureDetector(
+                      onTap: () async {
+                        await Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (context) => const MenuPlannerScreen()),
+                        );
+                        _fetchInstitutionData();
+                      },
+                      child: const Text(
+                        'Click to access →',
+                        style: TextStyle(color: Colors.black54, fontSize: 12),
+                      ),
                     ),
                   ),
                 ],
@@ -143,42 +242,40 @@ class InstitutionDashboard extends StatelessWidget {
     );
   }
 
-  Widget _inventoryItem(
-    String title,
-    String subtitle,
-    Color subtitleColor,
-    Color imageColor,
-  ) {
-    return Row(
-      children: [
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 14,
+  Widget _menuItem(String title, String subtitle) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8.0),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                subtitle,
-                style: TextStyle(color: subtitleColor, fontSize: 12),
-              ),
-            ],
+                const SizedBox(height: 2),
+                Text(
+                  subtitle,
+                  style: const TextStyle(color: Colors.black54, fontSize: 12),
+                ),
+              ],
+            ),
           ),
-        ),
-        Container(
-          width: 40,
-          height: 40,
-          decoration: BoxDecoration(
-            color: imageColor,
-            borderRadius: BorderRadius.circular(8),
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: Colors.grey[200],
+              borderRadius: BorderRadius.circular(8),
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
@@ -225,7 +322,7 @@ class InstitutionDashboard extends StatelessWidget {
                     const SizedBox(width: 8),
                     const Expanded(
                       child: Text(
-                        '15% more or 310 students attended school yesterday than the day before.',
+                        '0% more or 0 students attended school yesterday than the day before.',
                         style: TextStyle(color: Colors.black87),
                       ),
                     ),

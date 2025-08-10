@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:simplemeals/landing_page.dart';
+import 'package:simplemeals/screens/student/account_screen.dart'; // Import the new screen
 
 class StudentDashboard extends StatefulWidget {
   const StudentDashboard({super.key});
@@ -13,6 +14,15 @@ class StudentDashboard extends StatefulWidget {
 class _StudentDashboardState extends State<StudentDashboard> {
   String? _studentName;
   bool _isLoading = true;
+
+  // State variables for dynamic data
+  double _attendanceRate = 0.0;
+  int _daysPresent = 0;
+  int _totalDays = 0;
+  int _mealsConsumed = 0;
+  String _favoriteMeal = 'N/A';
+  List<Map<String, dynamic>> _recentMeals = [];
+
 
   @override
   void initState() {
@@ -28,9 +38,29 @@ class _StudentDashboardState extends State<StudentDashboard> {
     }
 
     try {
-      final userDoc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+      // Fetch both user and student documents
+      final userDocFuture = FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+      final studentDocFuture = FirebaseFirestore.instance.collection('students').doc(user.uid).get();
+
+      final results = await Future.wait([userDocFuture, studentDocFuture]);
+      final userDoc = results[0] as DocumentSnapshot<Map<String, dynamic>>;
+      final studentDoc = results[1] as DocumentSnapshot<Map<String, dynamic>>;
+
 
       if (mounted) {
+        // --- Data Processing Logic ---
+        final attendanceData = studentDoc.data()?['attendance'] as Map<String, dynamic>? ?? {};
+        _totalDays = attendanceData.length;
+        _daysPresent = attendanceData.values.where((present) => present == true).length;
+        _attendanceRate = _totalDays > 0 ? (_daysPresent / _totalDays) * 100 : 0.0;
+
+        // This is a placeholder for meal data logic. You'll need to adapt it
+        // to how you plan to store meal consumption.
+        _mealsConsumed = 0; // Replace with actual logic
+        _favoriteMeal = 'N/A'; // Replace with actual logic
+        _recentMeals = []; // Replace with actual logic
+
+
         setState(() {
           _studentName = userDoc.data()?['name'] ?? 'Student';
           _isLoading = false;
@@ -48,13 +78,15 @@ class _StudentDashboardState extends State<StudentDashboard> {
     }
   }
 
-  Future<void> _signOut(BuildContext context) async {
+  Future<void> _signOut() async {
     try {
       await FirebaseAuth.instance.signOut();
-      Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(builder: (context) => const LandingPage()),
-        (Route<dynamic> route) => false,
-      );
+      if (mounted) {
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (context) => const LandingPage()),
+          (Route<dynamic> route) => false,
+        );
+      }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error signing out: $e')),
@@ -62,12 +94,38 @@ class _StudentDashboardState extends State<StudentDashboard> {
     }
   }
 
+  void _showLogoutConfirmationDialog() {
+    showDialog(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        return AlertDialog(
+          title: const Text('Confirm Logout'),
+          content: const Text('Are you sure you want to log out?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+              onPressed: () {
+                Navigator.of(dialogContext).pop();
+                _signOut();
+              },
+              child: const Text('Logout'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.grey[100],
       appBar: AppBar(
-        leading: IconButton(onPressed: () => _signOut(context), icon: const Icon(Icons.arrow_back)),
+        leading: IconButton(onPressed: _showLogoutConfirmationDialog, icon: const Icon(Icons.logout)),
         backgroundColor: const Color(0xFF90E969),
         elevation: 0,
         centerTitle: true,
@@ -78,6 +136,17 @@ class _StudentDashboardState extends State<StudentDashboard> {
             color: Color.fromARGB(255, 0, 0, 0),
           ),
         ),
+        actions: [ // Add actions list for the new button
+          IconButton(
+            icon: const Icon(Icons.person, color: Colors.black87),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const StudentAccountScreen()),
+              );
+            },
+          ),
+        ],
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
@@ -139,8 +208,8 @@ class _StudentDashboardState extends State<StudentDashboard> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
-                _buildStatColumn('94.6%', 'Attendance Rate'),
-                _buildStatColumn('142 / 150', 'Days Present'),
+                _buildStatColumn('${_attendanceRate.toStringAsFixed(1)}%', 'Attendance Rate'),
+                _buildStatColumn('$_daysPresent / $_totalDays', 'Days Present'),
               ],
             ),
           ],
@@ -168,8 +237,8 @@ class _StudentDashboardState extends State<StudentDashboard> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
-                _buildStatColumn('23', 'Meals Consumed This Month'),
-                _buildStatColumn('Curry Rice', 'Favorite Meal'),
+                _buildStatColumn('$_mealsConsumed', 'Meals Consumed This Month'),
+                _buildStatColumn(_favoriteMeal, 'Favorite Meal'),
               ],
             ),
             const SizedBox(height: 20),
@@ -178,9 +247,19 @@ class _StudentDashboardState extends State<StudentDashboard> {
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
             ),
             const SizedBox(height: 12),
-            _buildMealItem('Dal & Rice (Along with Fruit)', 'Oct 26, 2023', consumed: true),
-            const SizedBox(height: 12),
-            _buildMealItem('Vegetable Soup', 'Oct 25, 2023', consumed: false),
+            if (_recentMeals.isEmpty)
+              const Center(
+                child: Padding(
+                  padding: EdgeInsets.symmetric(vertical: 20.0),
+                  child: Text('No recent meals to show.', style: TextStyle(color: Colors.grey)),
+                ),
+              )
+            else
+              ..._recentMeals.map((meal) => _buildMealItem(
+                meal['name'] ?? 'N/A',
+                meal['date'] ?? 'N/A',
+                consumed: meal['consumed'] ?? false,
+              )),
             const SizedBox(height: 20),
             Center(
               child: TextButton(
@@ -217,25 +296,28 @@ class _StudentDashboardState extends State<StudentDashboard> {
   }
 
   Widget _buildMealItem(String meal, String date, {required bool consumed}) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(meal, style: const TextStyle(fontWeight: FontWeight.w600)),
-            Text(date, style: const TextStyle(color: Colors.grey)),
-          ],
-        ),
-        Chip(
-          label: Text(
-            consumed ? 'Consumed' : 'Skipped',
-            style: TextStyle(color: consumed ? Colors.green : Colors.red),
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12.0),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(meal, style: const TextStyle(fontWeight: FontWeight.w600)),
+              Text(date, style: const TextStyle(color: Colors.grey)),
+            ],
           ),
-          backgroundColor: consumed ? const Color.fromARGB(255, 234, 240, 234) : const Color.fromARGB(255, 237, 224, 224),
-          side: BorderSide.none,
-        ),
-      ],
+          Chip(
+            label: Text(
+              consumed ? 'Consumed' : 'Skipped',
+              style: TextStyle(color: consumed ? Colors.green : Colors.red),
+            ),
+            backgroundColor: consumed ? const Color.fromARGB(255, 234, 240, 234) : const Color.fromARGB(255, 237, 224, 224),
+            side: BorderSide.none,
+          ),
+        ],
+      ),
     );
   }
 }
