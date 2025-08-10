@@ -1,13 +1,73 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:simplemeals/landing_page.dart';
 
-class StudentDashboard extends StatelessWidget {
+class StudentDashboard extends StatefulWidget {
   const StudentDashboard({super.key});
+
+  @override
+  State<StudentDashboard> createState() => _StudentDashboardState();
+}
+
+class _StudentDashboardState extends State<StudentDashboard> {
+  String? _studentName;
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchStudentData();
+  }
+
+  Future<void> _fetchStudentData() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      setState(() => _isLoading = false);
+      return;
+    }
+
+    try {
+      final userDoc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+
+      if (mounted) {
+        setState(() {
+          _studentName = userDoc.data()?['name'] ?? 'Student';
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      // ignore: avoid_print
+      print("Error fetching student data: $e");
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _studentName = "Error";
+        });
+      }
+    }
+  }
+
+  Future<void> _signOut(BuildContext context) async {
+    try {
+      await FirebaseAuth.instance.signOut();
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (context) => const LandingPage()),
+        (Route<dynamic> route) => false,
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error signing out: $e')),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.grey[100],
       appBar: AppBar(
+        leading: IconButton(onPressed: () => _signOut(context), icon: const Icon(Icons.arrow_back)),
         backgroundColor: const Color(0xFF90E969),
         elevation: 0,
         centerTitle: true,
@@ -19,16 +79,18 @@ class StudentDashboard extends StatelessWidget {
           ),
         ),
       ),
-      body: ListView(
-        padding: const EdgeInsets.all(16.0),
-        children: [
-          _buildWelcomeCard(),
-          const SizedBox(height: 20),
-          _buildAttendanceCard(),
-          const SizedBox(height: 20),
-          _buildMealConsumptionCard(),
-        ],
-      ),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : ListView(
+              padding: const EdgeInsets.all(16.0),
+              children: [
+                _buildWelcomeCard(),
+                const SizedBox(height: 20),
+                _buildAttendanceCard(),
+                const SizedBox(height: 20),
+                _buildMealConsumptionCard(),
+              ],
+            ),
     );
   }
 
@@ -38,17 +100,17 @@ class StudentDashboard extends StatelessWidget {
       elevation: 2,
       shadowColor: const Color.fromARGB(255, 255, 255, 255),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-      child: const Padding(
-        padding: EdgeInsets.all(20.0),
+      child: Padding(
+        padding: const EdgeInsets.all(20.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Hello, Yash.',
-              style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold),
+              'Hello, $_studentName.',
+              style: const TextStyle(fontSize: 26, fontWeight: FontWeight.bold),
             ),
-            SizedBox(height: 8),
-            Text(
+            const SizedBox(height: 8),
+            const Text(
               "Welcome back! Here's an overview of your SimpleMeals program progress.",
               style: TextStyle(fontSize: 16, color: Colors.black54),
             ),

@@ -1,7 +1,111 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
-class InventoryScreen extends StatelessWidget {
+class InventoryScreen extends StatefulWidget {
   const InventoryScreen({super.key});
+
+  @override
+  State<InventoryScreen> createState() => _InventoryScreenState();
+}
+
+class _InventoryScreenState extends State<InventoryScreen> {
+  Map<String, dynamic> _inventory = {};
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchInventory();
+  }
+
+  Future<void> _fetchInventory() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      setState(() => _isLoading = false);
+      return;
+    }
+
+    try {
+      final doc = await FirebaseFirestore.instance
+          .collection('providers')
+          .doc(user.uid)
+          .get();
+
+      if (mounted) {
+        setState(() {
+          _inventory = doc.data()?['inventory'] ?? {};
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      // ignore: avoid_print
+      print("Error fetching inventory: $e");
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  Future<void> _addItemToInventory(String itemName, String quantity) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null || itemName.isEmpty || quantity.isEmpty) return;
+
+    final providerRef =
+        FirebaseFirestore.instance.collection('providers').doc(user.uid);
+
+    // Using dot notation to update a field within a map
+    await providerRef.update({
+      'inventory.$itemName': quantity,
+    });
+
+    // Refresh the local state to show the new item
+    _fetchInventory();
+  }
+
+  void _showAddItemDialog() {
+    final TextEditingController itemController = TextEditingController();
+    final TextEditingController quantityController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Add New Item'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: itemController,
+                decoration: const InputDecoration(labelText: 'Item Name'),
+              ),
+              TextField(
+                controller: quantityController,
+                decoration: const InputDecoration(
+                    labelText: 'Quantity (e.g., 100 meals)'),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                _addItemToInventory(
+                  itemController.text.trim(),
+                  quantityController.text.trim(),
+                );
+                Navigator.of(context).pop();
+              },
+              child: const Text('Save'),
+            ),
+          ],
+        );
+      },
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -33,46 +137,33 @@ class InventoryScreen extends StatelessWidget {
           const SizedBox(width: 8),
         ],
       ),
-      body: ListView(
-        padding: const EdgeInsets.all(16.0),
-        children: [
-          _buildInventoryItemCard(
-            title: 'Eggs',
-            subtitle: 'Unavailable: Refill',
-            subtitleColor: Colors.red,
-            imageColor: Colors.yellow[100]!,
-          ),
-          _buildInventoryItemCard(
-            title: 'Rice & Dal',
-            subtitle: 'Available: 100 meals',
-            subtitleColor: Colors.green,
-            imageColor: Colors.orange[100]!,
-          ),
-          _buildInventoryItemCard(
-            title: 'Bananas',
-            subtitle: 'Available: 40 portions',
-            subtitleColor: Colors.green,
-            imageColor: Colors.yellow[200]!,
-          ),
-          _buildInventoryItemCard(
-            title: 'Milk',
-            subtitle: 'Available: 30 portions',
-            subtitleColor: Colors.green,
-            imageColor: Colors.blue[50]!,
-          ),
-          _buildInventoryItemCard(
-            title: 'Chicken Curry',
-            subtitle: 'Available: 90 meals',
-            subtitleColor: Colors.green,
-            imageColor: Colors.red[100]!,
-          ),
-          _buildInventoryItemCard(
-            title: 'Vegetable Curry',
-            subtitle: 'Available: 100 meals',
-            subtitleColor: Colors.green,
-            imageColor: Colors.green[100]!,
-          ),
-        ],
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : _inventory.isEmpty
+              ? const Center(
+                  child: Text(
+                    'Your inventory is empty.\nTap the + button to add an item.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 16, color: Colors.grey),
+                  ),
+                )
+              : ListView(
+                  padding: const EdgeInsets.all(16.0),
+                  children: _inventory.entries.map((entry) {
+                    final isAvailable =
+                        !entry.value.toString().toLowerCase().contains('unavail');
+                    return _buildInventoryItemCard(
+                      title: entry.key,
+                      subtitle: entry.value,
+                      subtitleColor: isAvailable ? Colors.green : Colors.red,
+                      imageColor: Colors.grey[200]!,
+                    );
+                  }).toList(),
+                ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: _showAddItemDialog,
+        backgroundColor: const Color(0xFF90E969),
+        child: const Icon(Icons.add, color: Colors.black87),
       ),
     );
   }

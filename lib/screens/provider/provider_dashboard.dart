@@ -1,9 +1,64 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:simplemeals/landing_page.dart';
 import 'package:simplemeals/screens/provider/inventory_screen.dart';
 
-class ProviderDashboard extends StatelessWidget {
+class ProviderDashboard extends StatefulWidget {
   const ProviderDashboard({super.key});
+
+  @override
+  State<ProviderDashboard> createState() => _ProviderDashboardState();
+}
+
+class _ProviderDashboardState extends State<ProviderDashboard> {
+  String? _providerName;
+  int? _institutionCount;
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchProviderData();
+  }
+
+  Future<void> _fetchProviderData() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      // Handle user not logged in case
+      setState(() => _isLoading = false);
+      return;
+    }
+
+    try {
+      // Fetch both documents concurrently
+      final userDocFuture = FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+      final providerDocFuture = FirebaseFirestore.instance.collection('providers').doc(user.uid).get();
+
+      final results = await Future.wait([userDocFuture, providerDocFuture]);
+      
+      final userDoc = results[0] ;
+      final providerDoc = results[1];
+
+      if (mounted) {
+        setState(() {
+          _providerName = userDoc.data()?['providerId'] ?? 'Provider';
+          _institutionCount = providerDoc.data()?['institutionCount'] ?? 0;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      // ignore: avoid_print
+      print("Error fetching provider data: $e");
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _providerName = "Error";
+          _institutionCount = 0;
+        });
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -24,8 +79,8 @@ class ProviderDashboard extends StatelessWidget {
             );
           },
         ),
-        title: Center(
-          child: const Text(
+        title: const Center(
+          child: Text(
             'SimpleMeals',
             style: TextStyle(
               fontSize: 24,
@@ -42,16 +97,18 @@ class ProviderDashboard extends StatelessWidget {
           const SizedBox(width: 8),
         ],
       ),
-      body: ListView(
-        padding: const EdgeInsets.all(16.0),
-        children: [
-          _buildWelcomeCard(newColor),
-          const SizedBox(height: 20),
-          _buildTopSection(context, newColor),
-          const SizedBox(height: 20),
-          _buildInsightsAndFeedbackCard(),
-        ],
-      ),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : ListView(
+              padding: const EdgeInsets.all(16.0),
+              children: [
+                _buildWelcomeCard(newColor),
+                const SizedBox(height: 20),
+                _buildTopSection(context, newColor),
+                const SizedBox(height: 20),
+                _buildInsightsAndFeedbackCard(),
+              ],
+            ),
     );
   }
 
@@ -60,19 +117,19 @@ class ProviderDashboard extends StatelessWidget {
       color: cardColor,
       elevation: 0,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      child: const Padding(
-        padding: EdgeInsets.all(24.0),
+      child: Padding(
+        padding: const EdgeInsets.all(24.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Hello, Shiba Foods.',
-              style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
+              'Hello, $_providerName.',
+              style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
             ),
-            SizedBox(height: 8),
+            const SizedBox(height: 8),
             Text(
-              'Please check out your available inventory for today. 31 schools are expecting meals today.',
-              style: TextStyle(fontSize: 16, color: Colors.black54),
+              'Please check out your available inventory for today. $_institutionCount schools are expecting meals today.',
+              style: const TextStyle(fontSize: 16, color: Colors.black54),
             ),
           ],
         ),
@@ -200,7 +257,7 @@ class ProviderDashboard extends StatelessWidget {
                         builder: (context) => const InventoryScreen(),
                       ),
                     ),
-                    child: Text(
+                    child: const Text(
                       'Click to access →',
                       style: TextStyle(color: Colors.black54, fontSize: 12),
                     ),

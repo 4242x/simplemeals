@@ -1,5 +1,5 @@
-import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:simplemeals/screens/provider/login_screen.dart';
 import 'package:simplemeals/screens/provider/provider_dashboard.dart';
@@ -14,18 +14,32 @@ class ProviderSignupScreen extends StatefulWidget {
 class _ProviderSignupScreenState extends State<ProviderSignupScreen> {
   final TextEditingController providerIdController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
-  final TextEditingController stateController = TextEditingController();
   final TextEditingController cityController = TextEditingController();
+  
+  // State variable to hold the selected state
+  String? _selectedState;
 
   bool isLoading = false;
+
+  // List of all Indian states and UTs
+  final List<String> indianStates = [
+    'Andhra Pradesh', 'Arunachal Pradesh', 'Assam', 'Bihar', 'Chhattisgarh',
+    'Goa', 'Gujarat', 'Haryana', 'Himachal Pradesh', 'Jharkhand', 'Karnataka',
+    'Kerala', 'Madhya Pradesh', 'Maharashtra', 'Manipur', 'Meghalaya',
+    'Mizoram', 'Nagaland', 'Odisha', 'Punjab', 'Rajasthan', 'Sikkim',
+    'Tamil Nadu', 'Telangana', 'Tripura', 'Uttar Pradesh', 'Uttarakhand',
+    'West Bengal', 'Andaman and Nicobar Islands', 'Chandigarh',
+    'Dadra and Nagar Haveli and Daman and Diu', 'Delhi', 'Jammu and Kashmir',
+    'Ladakh', 'Lakshadweep', 'Puducherry'
+  ];
 
   Future<void> _signUp() async {
     final providerId = providerIdController.text.trim();
     final password = passwordController.text.trim();
-    final state = stateController.text.trim();
     final city = cityController.text.trim();
+    final state = _selectedState; // Use the selected state
 
-    if (providerId.isEmpty || password.isEmpty || state.isEmpty || city.isEmpty) {
+    if (providerId.isEmpty || password.isEmpty || state == null || city.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Please fill all fields")),
       );
@@ -34,11 +48,9 @@ class _ProviderSignupScreenState extends State<ProviderSignupScreen> {
 
     setState(() => isLoading = true);
 
-    // Dummy email for Auth
     final dummyEmail = "$providerId@simplemeals.fake";
 
     try {
-      // Create Firebase Auth user
       UserCredential userCredential = await FirebaseAuth.instance
           .createUserWithEmailAndPassword(
         email: dummyEmail,
@@ -47,8 +59,6 @@ class _ProviderSignupScreenState extends State<ProviderSignupScreen> {
 
       String uid = userCredential.user!.uid;
 
-      // Store provider data in Firestore under users/{uid}
-      // NOTE: we write both 'role' and 'type' for compatibility
       await FirebaseFirestore.instance.collection('users').doc(uid).set({
         'role': 'provider',
         'type': 'provider',
@@ -59,7 +69,6 @@ class _ProviderSignupScreenState extends State<ProviderSignupScreen> {
         'uid': uid,
       });
 
-      // Create provider profile/doc under providers/{uid}
       await FirebaseFirestore.instance
           .collection('providers')
           .doc(uid)
@@ -69,7 +78,6 @@ class _ProviderSignupScreenState extends State<ProviderSignupScreen> {
           'city': city,
           'status': 'active',
         },
-        // inventory and orders will be subcollections later (or kept empty map)
         'inventory': {},
         'orders': {},
       });
@@ -95,87 +103,136 @@ class _ProviderSignupScreenState extends State<ProviderSignupScreen> {
         SnackBar(content: Text("Error: $e")),
       );
     } finally {
-      setState(() => isLoading = false);
+      if (mounted) {
+        setState(() => isLoading = false);
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color.fromARGB(255, 208, 255, 203),
-      body: Center(
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            return ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 500),
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 48.0),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Padding(
-                      padding: EdgeInsets.only(bottom: 50.0),
-                      child: Text(
-                        'SimpleMeals',
-                        style: TextStyle(
-                          fontSize: 40,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.black87,
+    // Wrap the Scaffold with GestureDetector to dismiss keyboard on tap
+    return GestureDetector(
+      onTap: () => FocusScope.of(context).unfocus(),
+      child: Scaffold(
+        backgroundColor: const Color.fromARGB(255, 208, 255, 203),
+        body: Center(
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              return ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 500),
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 48.0),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Padding(
+                        padding: EdgeInsets.only(bottom: 50.0),
+                        child: Text(
+                          'SimpleMeals',
+                          style: TextStyle(
+                            fontSize: 40,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.black87,
+                          ),
                         ),
                       ),
-                    ),
-                    Container(
-                      padding: const EdgeInsets.all(32.0),
-                      decoration: BoxDecoration(
-                        color: Colors.black87,
-                        borderRadius: BorderRadius.circular(20.0),
-                      ),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Center(
-                            child: Text(
-                              'Provider - Sign Up',
-                              style: TextStyle(
-                                fontSize: 28,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white,
+                      Container(
+                        padding: const EdgeInsets.all(32.0),
+                        decoration: BoxDecoration(
+                          color: Colors.black87,
+                          borderRadius: BorderRadius.circular(20.0),
+                        ),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Center(
+                              child: Text(
+                                'Provider - Sign Up',
+                                style: TextStyle(
+                                  fontSize: 28,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
+                                ),
                               ),
                             ),
-                          ),
-                          const SizedBox(height: 30),
-                          _labeledInput(
-                            label: 'Create a Provider ID',
-                            controller: providerIdController,
-                          ),
-                          const SizedBox(height: 20),
-                          _labeledInput(
-                            label: 'Create a password',
-                            obscureText: true,
-                            controller: passwordController,
-                          ),
-                          const SizedBox(height: 20),
-                          _labeledInput(label: 'Select State', controller: stateController),
-                          const SizedBox(height: 20),
-                          _labeledInput(label: 'Enter City', controller: cityController),
-                          const SizedBox(height: 20),
-                          _actionButtons(context, constraints.maxWidth),
-                          if (isLoading)
-                            const Padding(
-                              padding: EdgeInsets.only(top: 20),
-                              child: Center(child: CircularProgressIndicator()),
+                            const SizedBox(height: 30),
+                            _labeledInput(
+                              label: 'Create a Provider ID',
+                              controller: providerIdController,
                             ),
-                        ],
+                            const SizedBox(height: 20),
+                            _labeledInput(
+                              label: 'Create a password',
+                              obscureText: true,
+                              controller: passwordController,
+                            ),
+                            const SizedBox(height: 20),
+                            // State Dropdown
+                            _buildStateDropdown(),
+                            const SizedBox(height: 20),
+                            _labeledInput(label: 'Enter City', controller: cityController),
+                            const SizedBox(height: 20),
+                            _actionButtons(context, constraints.maxWidth),
+                            if (isLoading)
+                              const Padding(
+                                padding: EdgeInsets.only(top: 20),
+                                child: Center(child: CircularProgressIndicator()),
+                              ),
+                          ],
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-            );
-          },
+              );
+            },
+          ),
         ),
       ),
+    );
+  }
+
+  Widget _buildStateDropdown() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Select State',
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+            fontSize: 16,
+          ),
+        ),
+        const SizedBox(height: 8),
+        DropdownButtonFormField<String>(
+          value: _selectedState,
+          isExpanded: true,
+          decoration: InputDecoration(
+            filled: true,
+            fillColor: Colors.white,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(30.0),
+              borderSide: BorderSide.none,
+            ),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          ),
+          hint: const Text('Select a state'),
+          items: indianStates.map((String state) {
+            return DropdownMenuItem<String>(
+              value: state,
+              child: Text(state),
+            );
+          }).toList(),
+          onChanged: (newValue) {
+            setState(() {
+              _selectedState = newValue;
+            });
+          },
+        ),
+      ],
     );
   }
 
@@ -229,7 +286,7 @@ class _ProviderSignupScreenState extends State<ProviderSignupScreen> {
             borderRadius: BorderRadius.circular(40.0),
           ),
         ),
-        onPressed: _signUp,
+        onPressed: isLoading ? null : _signUp,
         child: const Text('Sign Up!', style: TextStyle(fontSize: 16)),
       ),
     );

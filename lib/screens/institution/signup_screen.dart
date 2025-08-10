@@ -18,6 +18,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
   final TextEditingController _totalController = TextEditingController();
   final TextEditingController _vegController = TextEditingController();
   final TextEditingController _nonVegController = TextEditingController();
+  final TextEditingController _providerIdController = TextEditingController();
 
   bool _isLoading = false;
 
@@ -28,10 +29,11 @@ class _SignUpScreenState extends State<SignUpScreen> {
     final total = _totalController.text.trim();
     final veg = _vegController.text.trim();
     final nonVeg = _nonVegController.text.trim();
+    final providerId = _providerIdController.text.trim();
 
-    if (id.isEmpty || password.isEmpty || name.isEmpty) {
+    if (id.isEmpty || password.isEmpty || name.isEmpty || providerId.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please fill required fields')),
+        const SnackBar(content: Text('Please fill all required fields')),
       );
       return;
     }
@@ -40,44 +42,77 @@ class _SignUpScreenState extends State<SignUpScreen> {
     final dummyEmail = "$id@simplemeals.fake";
 
     try {
+      // Step 1: Create the user in Firebase Authentication first.
+      // This cannot be done inside a Firestore transaction.
       UserCredential uc = await FirebaseAuth.instance
           .createUserWithEmailAndPassword(email: dummyEmail, password: password);
       final uid = uc.user!.uid;
 
-      await FirebaseFirestore.instance.collection('users').doc(uid).set({
-        'role': 'institute',
-        'userId': id,
-        'email': dummyEmail,
-        'name': name,
-        'totalStudents': int.tryParse(total) ?? 0,
-        'vegStudents': int.tryParse(veg) ?? 0,
-        'nonVegStudents': int.tryParse(nonVeg) ?? 0,
-        'uid': uid,
-      });
+      // Step 2: Run all Firestore writes in a single, atomic transaction.
+      await FirebaseFirestore.instance.runTransaction((transaction) async {
+        final providerRef = FirebaseFirestore.instance.collection('providers').doc(providerId);
+        final userRef = FirebaseFirestore.instance.collection('users').doc(uid);
+        final instituteRef = FirebaseFirestore.instance.collection('institutes').doc(uid);
 
-      await FirebaseFirestore.instance.collection('institutes').doc(uid).set({
-        'profile': {
+        // Read the provider document to check for existence and get the current count.
+        final providerDoc = await transaction.get(providerRef);
+        if (!providerDoc.exists) {
+          // If the provider doesn't exist, throw an error to cancel the transaction.
+          throw Exception('Provider with this ID does not exist.');
+        }
+
+        // Write the new user document.
+        transaction.set(userRef, {
+          'role': 'institute',
+          'userId': id,
+          'email': dummyEmail,
           'name': name,
           'totalStudents': int.tryParse(total) ?? 0,
           'vegStudents': int.tryParse(veg) ?? 0,
           'nonVegStudents': int.tryParse(nonVeg) ?? 0,
-        },
-        'dailyMenu': {},
-        'confirmations': {},
+          'uid': uid,
+          'providerId': providerId,
+        });
+
+        // Write the new institute document.
+        transaction.set(instituteRef, {
+          'profile': {
+            'name': name,
+            'totalStudents': int.tryParse(total) ?? 0,
+            'vegStudents': int.tryParse(veg) ?? 0,
+            'nonVegStudents': int.tryParse(nonVeg) ?? 0,
+            'providerId': providerId,
+          },
+          'dailyMenu': {},
+          'confirmations': {},
+        });
+        
+        // Get the current institution count, defaulting to 0 if it doesn't exist.
+        final currentCount = providerDoc.data()?['institutionCount'] ?? 0;
+        // Update the provider's document with the new count.
+        transaction.update(providerRef, {'institutionCount': currentCount + 1});
       });
 
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => const InstitutionDashboard()),
-      );
+      // If the transaction completes successfully, navigate to the dashboard.
+      if (mounted) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const InstitutionDashboard()),
+        );
+      }
+
     } on FirebaseAuthException catch (e) {
       String message = e.message ?? 'Signup failed';
-      if (e.code == 'email-already-in-use') message = 'Institution ID already exists';
+      if (e.code == 'email-already-in-use') {
+        message = 'Institution ID already exists';
+      }
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: ${e.toString()}')));
     } finally {
-      setState(() => _isLoading = false);
+      if(mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 
@@ -153,6 +188,8 @@ class _SignUpScreenState extends State<SignUpScreen> {
                           _labeledInput(label: 'Create a password', obscureText: true, controller: _passwordController),
                           const SizedBox(height: 20),
                           _labeledInput(label: 'Institution Name', controller: _nameController),
+                          const SizedBox(height: 20),
+                          _labeledInput(label: 'Provider ID', controller: _providerIdController),
                           const SizedBox(height: 20),
                           _labeledInput(label: 'Current No. of Students', controller: _totalController),
                           const SizedBox(height: 20),

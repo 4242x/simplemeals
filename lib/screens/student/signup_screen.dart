@@ -15,7 +15,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
   final TextEditingController _idController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   final TextEditingController _nameController = TextEditingController();
-  final TextEditingController _institutionController = TextEditingController();
+  final TextEditingController _institutionIdController = TextEditingController();
   final TextEditingController _ageController = TextEditingController();
   final TextEditingController _prefController = TextEditingController();
 
@@ -25,13 +25,13 @@ class _SignUpScreenState extends State<SignUpScreen> {
     final id = _idController.text.trim();
     final password = _passwordController.text.trim();
     final name = _nameController.text.trim();
-    final institute = _institutionController.text.trim();
+    final institutionId = _institutionIdController.text.trim();
     final age = _ageController.text.trim();
     final pref = _prefController.text.trim();
 
-    if (id.isEmpty || password.isEmpty || name.isEmpty || institute.isEmpty) {
+    if (id.isEmpty || password.isEmpty || name.isEmpty || institutionId.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please fill required fields')),
+        const SnackBar(content: Text('Please fill all required fields')),
       );
       return;
     }
@@ -40,46 +40,72 @@ class _SignUpScreenState extends State<SignUpScreen> {
     final dummyEmail = "$id@simplemeals.fake";
 
     try {
-      // create auth user
+      // Step 1: Create the user in Firebase Auth. This must be done outside the transaction.
       UserCredential uc = await FirebaseAuth.instance
           .createUserWithEmailAndPassword(email: dummyEmail, password: password);
       final uid = uc.user!.uid;
 
-      // write users/{uid}
-      await FirebaseFirestore.instance.collection('users').doc(uid).set({
-        'role': 'student',
-        'userId': id,
-        'email': dummyEmail,
-        'name': name,
-        'institute': institute,
-        'age': int.tryParse(age) ?? null,
-        'preference': pref,
-        'uid': uid,
-      });
+      // Step 2: Run all Firestore writes in a single, atomic transaction.
+      await FirebaseFirestore.instance.runTransaction((transaction) async {
+        final institutionRef = FirebaseFirestore.instance.collection('institutes').doc(institutionId);
+        final userRef = FirebaseFirestore.instance.collection('users').doc(uid);
+        final studentRef = FirebaseFirestore.instance.collection('students').doc(uid);
 
-      // create students/{uid} profile doc
-      await FirebaseFirestore.instance.collection('students').doc(uid).set({
-        'profile': {
+        // Read the institution document to verify it exists and get the student count.
+        final institutionDoc = await transaction.get(institutionRef);
+        if (!institutionDoc.exists) {
+          // If the institution doesn't exist, cancel the transaction.
+          throw Exception('Institution with this ID does not exist.');
+        }
+
+        // Write the new user document.
+        transaction.set(userRef, {
+          'role': 'student',
+          'userId': id,
+          'email': dummyEmail,
           'name': name,
-          'institute': institute,
+          'instituteId': institutionId, // Save the link
           'age': int.tryParse(age) ?? null,
           'preference': pref,
-        },
-        'attendance': {},
+          'uid': uid,
+        });
+
+        // Write the new student document.
+        transaction.set(studentRef, {
+          'profile': {
+            'name': name,
+            'instituteId': institutionId, // Save the link
+            'age': int.tryParse(age) ?? null,
+            'preference': pref,
+          },
+          'attendance': {},
+        });
+
+        // Get the current student count from the institution's profile.
+        final profileData = institutionDoc.data()?['profile'] as Map<String, dynamic>? ?? {};
+        final currentCount = profileData['totalStudents'] ?? 0;
+        
+        // Update the institution's profile with the new student count.
+        transaction.update(institutionRef, {'profile.totalStudents': currentCount + 1});
       });
 
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => const StudentDashboard()),
-      );
+      // If the transaction is successful, navigate to the dashboard.
+      if (mounted) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const StudentDashboard()),
+        );
+      }
     } on FirebaseAuthException catch (e) {
       String message = e.message ?? 'Signup failed';
       if (e.code == 'email-already-in-use') message = 'User ID already exists';
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: ${e.toString()}')));
     } finally {
-      setState(() => _isLoading = false);
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 
@@ -156,7 +182,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                           const SizedBox(height: 20),
                           _labeledInput(label: 'Name', controller: _nameController),
                           const SizedBox(height: 20),
-                          _labeledInput(label: 'Institution', controller: _institutionController),
+                          _labeledInput(label: 'Institution ID', controller: _institutionIdController),
                           const SizedBox(height: 20),
                           _labeledInput(label: 'Age', controller: _ageController),
                           const SizedBox(height: 20),
