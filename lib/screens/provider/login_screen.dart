@@ -1,9 +1,69 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 import 'package:simplemeals/screens/provider/provider_dashboard.dart';
 import 'package:simplemeals/screens/provider/signup_screen.dart';
 
-class ProviderLoginScreen extends StatelessWidget {
+class ProviderLoginScreen extends StatefulWidget {
   const ProviderLoginScreen({super.key});
+
+  @override
+  State<ProviderLoginScreen> createState() => _ProviderLoginScreenState();
+}
+
+class _ProviderLoginScreenState extends State<ProviderLoginScreen> {
+  final _idController = TextEditingController();
+  final _passwordController = TextEditingController();
+  bool _loading = false;
+
+  Future<void> _login() async {
+    final id = _idController.text.trim();
+    final password = _passwordController.text.trim();
+
+    if (id.isEmpty || password.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Please enter both ID and password")),
+      );
+      return;
+    }
+
+    try {
+      setState(() => _loading = true);
+
+      final fakeEmail = "$id@simplemeals.fake";
+      final userCredential = await FirebaseAuth.instance
+          .signInWithEmailAndPassword(email: fakeEmail, password: password);
+
+      final uid = userCredential.user!.uid;
+      final snapshot =
+          await FirebaseFirestore.instance.collection('users').doc(uid).get();
+
+      if (!snapshot.exists) {
+        throw Exception("User record not found in Firestore.");
+      }
+
+      final role = snapshot['role'];
+      if (role != 'provider') {
+        throw Exception("You are not registered as a Provider.");
+      }
+
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const ProviderDashboard()),
+      );
+    } on FirebaseAuthException catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.message ?? "Login failed")),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.toString())),
+      );
+    } finally {
+      setState(() => _loading = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -51,9 +111,13 @@ class ProviderLoginScreen extends StatelessWidget {
                             ),
                           ),
                           const SizedBox(height: 30),
-                          _labeledInput(label: ' Provider ID'),
+                          _labeledInput(
+                              label: ' Provider ID', controller: _idController),
                           const SizedBox(height: 20),
-                          _labeledInput(label: 'Password', obscureText: true),
+                          _labeledInput(
+                              label: 'Password',
+                              obscureText: true,
+                              controller: _passwordController),
                           const SizedBox(height: 30),
                           _actionButtons(context, constraints.maxWidth),
                         ],
@@ -69,7 +133,11 @@ class ProviderLoginScreen extends StatelessWidget {
     );
   }
 
-  Widget _labeledInput({required String label, bool obscureText = false}) {
+  Widget _labeledInput({
+    required String label,
+    bool obscureText = false,
+    required TextEditingController controller,
+  }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -83,6 +151,7 @@ class ProviderLoginScreen extends StatelessWidget {
         ),
         const SizedBox(height: 8),
         TextField(
+          controller: controller,
           obscureText: obscureText,
           decoration: InputDecoration(
             filled: true,
@@ -113,13 +182,14 @@ class ProviderLoginScreen extends StatelessWidget {
             borderRadius: BorderRadius.circular(40.0),
           ),
         ),
-        onPressed: () {
-                            Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => const ProviderDashboard()),
-          );
-        },
-        child: const Text('Sign In!', style: TextStyle(fontSize: 16)),
+        onPressed: _loading ? null : _login,
+        child: _loading
+            ? const SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
+            : const Text('Sign In!', style: TextStyle(fontSize: 16)),
       ),
     );
 
@@ -136,7 +206,8 @@ class ProviderLoginScreen extends StatelessWidget {
         onPressed: () {
           Navigator.push(
             context,
-            MaterialPageRoute(builder: (context) => const SignUpScreen()),
+            MaterialPageRoute(
+                builder: (context) => const ProviderSignupScreen()),
           );
         },
         child: const Text('Sign Up?', style: TextStyle(fontSize: 16)),
