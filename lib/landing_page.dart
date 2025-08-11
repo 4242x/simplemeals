@@ -51,7 +51,7 @@ class LandingPage extends StatelessWidget {
                     _buildAccountButton(
                       text: 'Student',
                       onTap: () {
-                        Navigator.push( // Changed from pushReplacement
+                        Navigator.push( 
                           context,
                           MaterialPageRoute(
                             builder: (context) => const StudentLoginScreen(),
@@ -63,7 +63,7 @@ class LandingPage extends StatelessWidget {
                     _buildAccountButton(
                       text: 'Institution',
                       onTap: () {
-                        Navigator.push( // Changed from pushReplacement
+                        Navigator.push( 
                           context,
                           MaterialPageRoute(
                             builder: (context) =>
@@ -77,7 +77,7 @@ class LandingPage extends StatelessWidget {
                       text: 'Provider',
                       isDark: true,
                       onTap: () {
-                        Navigator.push( // Changed from pushReplacement
+                        Navigator.push( 
                           context,
                           MaterialPageRoute(
                             builder: (context) => const ProviderLoginScreen(),

@@ -11,7 +11,6 @@ import 'landing_page.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp();
-  // Initialize Gemini with your API key
   Gemini.init(apiKey: "");
   runApp(const MyApp());
 }

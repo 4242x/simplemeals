@@ -194,7 +194,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color.fromARGB(255, 240, 240, 240),
+      backgroundColor: const Color.fromARGB(255, 227, 240, 227),
       appBar: AppBar(
         backgroundColor: const Color(0xFF90E969),
         elevation: 0,

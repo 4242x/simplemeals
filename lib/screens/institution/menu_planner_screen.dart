@@ -154,7 +154,7 @@ class _MenuPlannerScreenState extends State<MenuPlannerScreen> {
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.person, color: Colors.transparent), // Placeholder
+            icon: const Icon(Icons.person, color: Colors.transparent), 
             onPressed: null,
           ),
         ],
@@ -178,7 +178,7 @@ class _MenuPlannerScreenState extends State<MenuPlannerScreen> {
                       return _buildMenuItem(entry.key, entry.value);
                     }),
                     if (_nutritionalAnalysis != null) _buildAnalysisCard(),
-                    const SizedBox(height: 80), // Space for the floating action button
+                    const SizedBox(height: 80),
                   ],
                 ),
       floatingActionButton: FloatingActionButton.extended(

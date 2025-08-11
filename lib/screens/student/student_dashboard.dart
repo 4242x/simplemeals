@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:intl/intl.dart'; 
 import 'package:simplemeals/landing_page.dart';
-import 'package:simplemeals/screens/student/account_screen.dart'; // Import the new screen
+import 'package:simplemeals/screens/student/account_screen.dart';
 
 class StudentDashboard extends StatefulWidget {
   const StudentDashboard({super.key});
@@ -14,15 +15,12 @@ class StudentDashboard extends StatefulWidget {
 class _StudentDashboardState extends State<StudentDashboard> {
   String? _studentName;
   bool _isLoading = true;
+  final TextEditingController _feedbackController = TextEditingController();
 
-  // State variables for dynamic data
   double _attendanceRate = 0.0;
   int _daysPresent = 0;
   int _totalDays = 0;
-  int _mealsConsumed = 0;
-  String _favoriteMeal = 'N/A';
-  List<Map<String, dynamic>> _recentMeals = [];
-
+  bool? _todaysAttendance;
 
   @override
   void initState() {
@@ -30,15 +28,24 @@ class _StudentDashboardState extends State<StudentDashboard> {
     _fetchStudentData();
   }
 
+  @override
+  void dispose() {
+    _feedbackController.dispose();
+    super.dispose();
+  }
+
+  String _getTodaysDateKey() {
+    return DateFormat('yyyy-MM-dd').format(DateTime.now());
+  }
+
   Future<void> _fetchStudentData() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
-      setState(() => _isLoading = false);
+      if (mounted) setState(() => _isLoading = false);
       return;
     }
 
     try {
-      // Fetch both user and student documents
       final userDocFuture = FirebaseFirestore.instance.collection('users').doc(user.uid).get();
       final studentDocFuture = FirebaseFirestore.instance.collection('students').doc(user.uid).get();
 
@@ -46,20 +53,12 @@ class _StudentDashboardState extends State<StudentDashboard> {
       final userDoc = results[0] as DocumentSnapshot<Map<String, dynamic>>;
       final studentDoc = results[1] as DocumentSnapshot<Map<String, dynamic>>;
 
-
       if (mounted) {
-        // --- Data Processing Logic ---
         final attendanceData = studentDoc.data()?['attendance'] as Map<String, dynamic>? ?? {};
         _totalDays = attendanceData.length;
         _daysPresent = attendanceData.values.where((present) => present == true).length;
         _attendanceRate = _totalDays > 0 ? (_daysPresent / _totalDays) * 100 : 0.0;
-
-        // This is a placeholder for meal data logic. You'll need to adapt it
-        // to how you plan to store meal consumption.
-        _mealsConsumed = 0; // Replace with actual logic
-        _favoriteMeal = 'N/A'; // Replace with actual logic
-        _recentMeals = []; // Replace with actual logic
-
+        _todaysAttendance = attendanceData[_getTodaysDateKey()];
 
         setState(() {
           _studentName = userDoc.data()?['name'] ?? 'Student';
@@ -78,10 +77,46 @@ class _StudentDashboardState extends State<StudentDashboard> {
     }
   }
 
+  Future<void> _markAttendance(bool attended) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    final todayKey = _getTodaysDateKey();
+    try {
+      await FirebaseFirestore.instance.collection('students').doc(user.uid).update({
+        'attendance.$todayKey': attended,
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Attendance marked for today.'), backgroundColor: Colors.green),
+      );
+      _fetchStudentData(); // Refresh data
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error marking attendance: $e'), backgroundColor: Colors.red),
+      );
+    }
+  }
+
+  Future<void> _submitFeedback() async {
+    final feedbackText = _feedbackController.text.trim();
+    if (feedbackText.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter your feedback before submitting.')),
+      );
+      return;
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Thank you for your feedback!'), backgroundColor: Colors.green),
+    );
+    _feedbackController.clear();
+    FocusScope.of(context).unfocus(); // Close keyboard
+  }
+
   Future<void> _signOut() async {
     try {
       await FirebaseAuth.instance.signOut();
-      if (mounted) {
+      if(mounted) {
         Navigator.of(context).pushAndRemoveUntil(
           MaterialPageRoute(builder: (context) => const LandingPage()),
           (Route<dynamic> route) => false,
@@ -94,49 +129,23 @@ class _StudentDashboardState extends State<StudentDashboard> {
     }
   }
 
-  void _showLogoutConfirmationDialog() {
-    showDialog(
-      context: context,
-      builder: (BuildContext dialogContext) {
-        return AlertDialog(
-          title: const Text('Confirm Logout'),
-          content: const Text('Are you sure you want to log out?'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(),
-              child: const Text('Cancel'),
-            ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-              onPressed: () {
-                Navigator.of(dialogContext).pop();
-                _signOut();
-              },
-              child: const Text('Logout'),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.grey[100],
       appBar: AppBar(
-        leading: IconButton(onPressed: _showLogoutConfirmationDialog, icon: const Icon(Icons.logout)),
+        leading: IconButton(onPressed: _signOut, icon: const Icon(Icons.menu)),
         backgroundColor: const Color(0xFF90E969),
         elevation: 0,
         centerTitle: true,
         title: const Text(
-          'Student Dashboard',
+          'SimpleMeals',
           style: TextStyle(
             fontWeight: FontWeight.bold,
             color: Color.fromARGB(255, 0, 0, 0),
           ),
         ),
-        actions: [ // Add actions list for the new button
+        actions: [
           IconButton(
             icon: const Icon(Icons.person, color: Colors.black87),
             onPressed: () {
@@ -157,7 +166,9 @@ class _StudentDashboardState extends State<StudentDashboard> {
                 const SizedBox(height: 20),
                 _buildAttendanceCard(),
                 const SizedBox(height: 20),
-                _buildMealConsumptionCard(),
+                _buildMealConfirmationCard(),
+                const SizedBox(height: 20),
+                _buildMealInsightsCard(),
               ],
             ),
     );
@@ -165,9 +176,8 @@ class _StudentDashboardState extends State<StudentDashboard> {
 
   Widget _buildWelcomeCard() {
     return Card(
-      color: Colors.white,
-      elevation: 2,
-      shadowColor: const Color.fromARGB(255, 255, 255, 255),
+      color: const Color.fromARGB(255, 227, 255, 227),
+      elevation: 0,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
       child: Padding(
         padding: const EdgeInsets.all(20.0),
@@ -180,7 +190,7 @@ class _StudentDashboardState extends State<StudentDashboard> {
             ),
             const SizedBox(height: 8),
             const Text(
-              "Welcome back! Here's an overview of your SimpleMeals program progress.",
+              "Welcome back! Here's an overview of your mid-day program progress.",
               style: TextStyle(fontSize: 16, color: Colors.black54),
             ),
           ],
@@ -191,9 +201,8 @@ class _StudentDashboardState extends State<StudentDashboard> {
 
   Widget _buildAttendanceCard() {
     return Card(
-      color: Colors.white,
-      elevation: 2,
-      shadowColor: Colors.white,
+      color: const Color.fromARGB(255, 227, 255, 227),
+      elevation: 0,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
       child: Padding(
         padding: const EdgeInsets.all(20.0),
@@ -201,15 +210,15 @@ class _StudentDashboardState extends State<StudentDashboard> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              'Attendance Insights',
+              'Attendance',
               style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 16),
             Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
-                _buildStatColumn('${_attendanceRate.toStringAsFixed(1)}%', 'Attendance Rate'),
-                _buildStatColumn('$_daysPresent / $_totalDays', 'Days Present'),
+                Expanded(child: _buildStatBox('${_attendanceRate.toStringAsFixed(1)}%')),
+                const SizedBox(width: 16),
+                Expanded(child: _buildStatBox('$_daysPresent/$_totalDays days')),
               ],
             ),
           ],
@@ -218,105 +227,124 @@ class _StudentDashboardState extends State<StudentDashboard> {
     );
   }
 
-  Widget _buildMealConsumptionCard() {
+  Widget _buildStatBox(String value) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 12),
+      decoration: BoxDecoration(
+        color: Colors.grey[200],
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Center(
+        child: Text(value, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+      ),
+    );
+  }
+
+  Widget _buildMealConfirmationCard() {
     return Card(
-      color: Colors.white,
-      elevation: 2,
-      shadowColor: Colors.white,
+      color: const Color.fromARGB(255, 227, 255, 227),
+      elevation: 0,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+      child: Padding(
+        padding: const EdgeInsets.all(20.0),
+        child: Column(
+          children: [
+            const Text(
+              'Did you get your meal today?',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 16),
+            if (_todaysAttendance != null)
+              Text(
+                _todaysAttendance! ? "You marked: Yes" : "You marked: No",
+                style: TextStyle(
+                  color: _todaysAttendance! ? Colors.green : Colors.red,
+                  fontWeight: FontWeight.bold,
+                ),
+              )
+            else
+              Row(
+                children: [
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () => _markAttendance(true),
+                      style: ElevatedButton.styleFrom(backgroundColor: Colors.green, foregroundColor: Colors.white),
+                      child: const Text('Yes'),
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () => _markAttendance(false),
+                      style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
+                      child: const Text('No'),
+                    ),
+                  ),
+                ],
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMealInsightsCard() {
+    return Card(
+      color: const Color(0xFFC8E6C9),
+      elevation: 0,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       child: Padding(
         padding: const EdgeInsets.all(20.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'Meal Consumption Details',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 20),
+            const Text('Mid-Day Meal Insights', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 16),
             Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
-                _buildStatColumn('$_mealsConsumed', 'Meals Consumed This Month'),
-                _buildStatColumn(_favoriteMeal, 'Favorite Meal'),
+                Chip(
+                  label: const Text('Analysis'),
+                  backgroundColor: Colors.white,
+                ),
+                const SizedBox(width: 8),
+                const Expanded(
+                  child: Text('All meals were received during this month\'s program.'),
+                ),
               ],
             ),
-            const SizedBox(height: 20),
-            const Text(
-              'Recent Meals',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
-            ),
-            const SizedBox(height: 12),
-            if (_recentMeals.isEmpty)
-              const Center(
-                child: Padding(
-                  padding: EdgeInsets.symmetric(vertical: 20.0),
-                  child: Text('No recent meals to show.', style: TextStyle(color: Colors.grey)),
-                ),
-              )
-            else
-              ..._recentMeals.map((meal) => _buildMealItem(
-                meal['name'] ?? 'N/A',
-                meal['date'] ?? 'N/A',
-                consumed: meal['consumed'] ?? false,
-              )),
-            const SizedBox(height: 20),
-            Center(
-              child: TextButton(
-                onPressed: () {},
-                child: const Row(
-                  mainAxisSize: MainAxisSize.min,
+            const SizedBox(height: 16),
+            Card(
+              color: Colors.white,
+              elevation: 0,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
                   children: [
-                    Text('View All Meals', style: TextStyle(color: Colors.black54)),
-                    Icon(Icons.chevron_right, color: Colors.black54),
+                    const Chip(label: Text('Feedback')),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: _feedbackController,
+                      decoration: const InputDecoration(
+                        hintText: 'Type your comments...',
+                        border: OutlineInputBorder(),
+                      ),
+                      maxLines: 3,
+                    ),
+                    const SizedBox(height: 8),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: TextButton(
+                        onPressed: _submitFeedback,
+                        child: const Text('Submit →'),
+                      ),
+                    ),
                   ],
                 ),
               ),
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildStatColumn(String value, String label) {
-    return Column(
-      children: [
-        Text(
-          value,
-          style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          label,
-          style: const TextStyle(fontSize: 14, color: Colors.black54),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildMealItem(String meal, String date, {required bool consumed}) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12.0),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(meal, style: const TextStyle(fontWeight: FontWeight.w600)),
-              Text(date, style: const TextStyle(color: Colors.grey)),
-            ],
-          ),
-          Chip(
-            label: Text(
-              consumed ? 'Consumed' : 'Skipped',
-              style: TextStyle(color: consumed ? Colors.green : Colors.red),
-            ),
-            backgroundColor: consumed ? const Color.fromARGB(255, 234, 240, 234) : const Color.fromARGB(255, 237, 224, 224),
-            side: BorderSide.none,
-          ),
-        ],
       ),
     );
   }

@@ -38,7 +38,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
       return;
     }
 
-    // --- New Validation Logic ---
+
     final totalInt = int.tryParse(total) ?? 0;
     final vegInt = int.tryParse(veg) ?? 0;
     final nonVegInt = int.tryParse(nonVeg) ?? 0;
@@ -51,15 +51,15 @@ class _SignUpScreenState extends State<SignUpScreen> {
       );
       return;
     }
-    // --- End of New Validation ---
+
 
     setState(() => _isLoading = true);
     final dummyEmail = "$id@simplemeals.fake";
 
-    UserCredential? uc; // Declare UserCredential outside the try block
+    UserCredential? uc; 
 
     try {
-      // Step 1: Find the provider's UID by querying the 'users' collection.
+
       final providerQuery = await FirebaseFirestore.instance
           .collection('users')
           .where('role', isEqualTo: 'provider')
@@ -73,12 +73,10 @@ class _SignUpScreenState extends State<SignUpScreen> {
       
       final providerUid = providerQuery.docs.first.id;
 
-      // Step 2: Create the user in Firebase Authentication.
       uc = await FirebaseAuth.instance
           .createUserWithEmailAndPassword(email: dummyEmail, password: password);
       final uid = uc.user!.uid;
 
-      // Step 3: Run all Firestore writes in a single, atomic transaction.
       await FirebaseFirestore.instance.runTransaction((transaction) async {
         final providerRef = FirebaseFirestore.instance.collection('providers').doc(providerUid);
         final userRef = FirebaseFirestore.instance.collection('users').doc(uid);
@@ -93,7 +91,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
           'vegStudents': vegInt,
           'nonVegStudents': nonVegInt,
           'uid': uid,
-          'providerId': providerUid, // Store the actual UID of the provider
+          'providerId': providerUid, 
         });
 
         transaction.set(instituteRef, {
@@ -102,7 +100,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
             'totalStudents': totalInt,
             'vegStudents': vegInt,
             'nonVegStudents': nonVegInt,
-            'providerId': providerUid, // Store the actual UID of the provider
+            'providerId': providerUid,
           },
           'dailyMenu': {},
           'confirmations': {},
@@ -123,7 +121,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
       }
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
     } catch (e) {
-      // **CLEANUP STEP**: If Firestore operations fail, delete the created Auth user.
+
       if (uc != null) {
         await uc.user?.delete();
       }

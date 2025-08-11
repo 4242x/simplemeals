@@ -30,7 +30,7 @@ class _ProviderLoginScreenState extends State<ProviderLoginScreen> {
     setState(() => _loading = true);
 
     try {
-      // Step 1: Find the user by their providerId first.
+
       final querySnapshot = await FirebaseFirestore.instance
           .collection('users')
           .where('role', isEqualTo: 'provider')
@@ -42,7 +42,7 @@ class _ProviderLoginScreenState extends State<ProviderLoginScreen> {
         throw Exception("No provider found with this ID.");
       }
 
-      // Step 2: Get the real email from the document.
+
       final userDoc = querySnapshot.docs.first;
       final email = userDoc.data()['email'] as String?;
 
@@ -50,11 +50,9 @@ class _ProviderLoginScreenState extends State<ProviderLoginScreen> {
         throw Exception("User record is corrupted (missing email).");
       }
 
-      // Step 3: Sign in with the fetched email.
       await FirebaseAuth.instance
           .signInWithEmailAndPassword(email: email, password: password);
 
-      // Successful login → Go to provider dashboard
       if (mounted) {
         Navigator.pushReplacement(
           context,

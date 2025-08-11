@@ -15,7 +15,7 @@ class _StudentAccountScreenState extends State<StudentAccountScreen> {
   String? _foodPreference;
   bool _isLoading = true;
 
-  // State variables for provider details
+
   String _providerName = 'N/A';
   String _providerId = 'N/A';
   String _providerEmail = 'N/A';

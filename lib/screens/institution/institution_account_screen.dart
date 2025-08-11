@@ -53,9 +53,9 @@ class _InstitutionAccountScreenState extends State<InstitutionAccountScreen> {
           final providerUserDoc = await FirebaseFirestore.instance.collection('users').doc(providerUid).get();
           final providerData = providerUserDoc.data();
           if (providerData != null) {
-            _providerName = providerData['providerId'] ?? 'N/A'; // Assuming provider's name is stored in providerId field
+            _providerName = providerData['providerId'] ?? 'N/A';
             _providerId = providerData['providerId'] ?? 'N/A';
-            _providerContact = providerData['contactNumber'] ?? '+91 77778XXXXX'; // Placeholder
+            _providerContact = providerData['contactNumber'] ?? '+91 77778XXXXX'; 
             _providerEmail = providerData['email']?.replaceFirst('@simplemeals.fake', '') ?? 'N/A';
             _providerAddress = "${providerData['city']}, ${providerData['state']}";
           }

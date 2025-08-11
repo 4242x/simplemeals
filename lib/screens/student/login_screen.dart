@@ -52,7 +52,7 @@ class _StudentLoginScreenState extends State<StudentLoginScreen> {
         throw Exception("You are not registered as a Student.");
       }
 
-      // successful login → navigate
+
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (context) => const StudentDashboard()),
