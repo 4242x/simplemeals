@@ -15,7 +15,7 @@ class _MenuPlannerScreenState extends State<MenuPlannerScreen> {
   bool _isLoading = true;
   bool _isSaving = false;
   Map<String, dynamic> _providerInventory = {};
-  Map<String, TextEditingController> _menuItemControllers = {};
+  final Map<String, TextEditingController> _menuItemControllers = {};
   final TextEditingController _menuTitleController = TextEditingController();
   String? _nutritionalAnalysis;
 

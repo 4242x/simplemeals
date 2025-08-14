@@ -74,7 +74,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
           'email': dummyEmail,
           'name': name,
           'instituteId': institutionUid,
-          'age': int.tryParse(age) ?? null,
+          'age': int.tryParse(age),
           'preference': pref,
           'uid': uid,
         });
@@ -83,7 +83,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
           'profile': {
             'name': name,
             'instituteId': institutionUid,
-            'age': int.tryParse(age) ?? null,
+            'age': int.tryParse(age),
             'preference': pref,
           },
           'attendance': {},

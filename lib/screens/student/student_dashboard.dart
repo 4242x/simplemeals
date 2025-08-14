@@ -50,8 +50,8 @@ class _StudentDashboardState extends State<StudentDashboard> {
       final studentDocFuture = FirebaseFirestore.instance.collection('students').doc(user.uid).get();
 
       final results = await Future.wait([userDocFuture, studentDocFuture]);
-      final userDoc = results[0] as DocumentSnapshot<Map<String, dynamic>>;
-      final studentDoc = results[1] as DocumentSnapshot<Map<String, dynamic>>;
+      final userDoc = results[0];
+      final studentDoc = results[1];
 
       if (mounted) {
         final attendanceData = studentDoc.data()?['attendance'] as Map<String, dynamic>? ?? {};

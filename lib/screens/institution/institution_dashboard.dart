@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:simplemeals/landing_page.dart';
 import 'package:simplemeals/screens/institution/institution_account_screen.dart';
+import 'package:simplemeals/screens/institution/institution_feedback.dart';
 import 'package:simplemeals/screens/institution/menu_planner_screen.dart';
 
 class InstitutionDashboard extends StatefulWidget {
@@ -36,8 +37,8 @@ class _InstitutionDashboardState extends State<InstitutionDashboard> {
       final instituteDocFuture = FirebaseFirestore.instance.collection('institutes').doc(user.uid).get();
 
       final results = await Future.wait([userDocFuture, instituteDocFuture]);
-      final userDoc = results[0] as DocumentSnapshot<Map<String, dynamic>>;
-      final instituteDoc = results[1] as DocumentSnapshot<Map<String, dynamic>>;
+      final userDoc = results[0];
+      final instituteDoc = results[1];
 
       if (mounted) {
         setState(() {
@@ -216,7 +217,7 @@ class _InstitutionDashboardState extends State<InstitutionDashboard> {
                   else
                   ..._todaysMenu.entries.map((entry) {
                     return _menuItem(entry.key, entry.value);
-                  }).toList(),
+                  }),
                   const SizedBox(height: 12),
                   Center(
                     child: GestureDetector(
@@ -360,10 +361,16 @@ class _InstitutionDashboardState extends State<InstitutionDashboard> {
                   ),
                 ),
                 const SizedBox(height: 16),
-                const Center(
-                  child: Text(
-                    'Click to view more →',
-                    style: TextStyle(color: Colors.black54),
+                GestureDetector(
+                  onTap: () =>  Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const InstitutionFeedbackScreen()),
+              ),
+                  child: const Center(
+                    child: Text(
+                      'Click to view more →',
+                      style: TextStyle(color: Colors.black54),
+                    ),
                   ),
                 ),
               ],

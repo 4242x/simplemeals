@@ -36,8 +36,8 @@ class _ProviderDashboardState extends State<ProviderDashboard> {
 
       final results = await Future.wait([userDocFuture, providerDocFuture]);
       
-      final userDoc = results[0] as DocumentSnapshot<Map<String, dynamic>>;
-      final providerDoc = results[1] as DocumentSnapshot<Map<String, dynamic>>;
+      final userDoc = results[0];
+      final providerDoc = results[1];
 
       if (mounted) {
         final Map<String, dynamic> fullInventory = Map<String, dynamic>.from(providerDoc.data()?['inventory'] ?? {});
@@ -372,7 +372,7 @@ class _ProviderDashboardState extends State<ProviderDashboard> {
                         Colors.grey[200]!,
                       ),
                     );
-                  }).toList(),
+                  }),
                 const SizedBox(height: 12),
                 Center(
                   child: GestureDetector(

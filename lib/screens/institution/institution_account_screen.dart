@@ -23,7 +23,6 @@ class _InstitutionAccountScreenState extends State<InstitutionAccountScreen> {
   String _providerEmail = 'N/A';
   String _providerAddress = 'N/A';
 
-
   @override
   void initState() {
     super.initState();

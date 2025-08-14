@@ -46,7 +46,7 @@ class _StudentLoginScreenState extends State<StudentLoginScreen> {
       }
 
       final data = snapshot.data();
-      final role = data?['role'] ?? data?['type'] ?? null;
+      final role = data?['role'] ?? data?['type'];
 
       if (role != 'student') {
         throw Exception("You are not registered as a Student.");

@@ -45,7 +45,7 @@ class _InstitutionLoginScreenState extends State<InstitutionLoginScreen> {
       }
 
       final data = snapshot.data();
-      final role = data?['role'] ?? data?['type'] ?? null;
+      final role = data?['role'] ?? data?['type'];
 
       if (role != 'institute') {
         throw Exception("You are not registered as an Institution.");
