@@ -151,7 +151,7 @@ class _StudentAccountScreenState extends State<StudentAccountScreen> {
                 Expanded(
                   child: ElevatedButton(
                     onPressed: () {
-                      // TODO: Implement Change Food Preference logic
+
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF90E969),
@@ -168,7 +168,7 @@ class _StudentAccountScreenState extends State<StudentAccountScreen> {
                 Expanded(
                   child: ElevatedButton(
                     onPressed: () {
-                      // TODO: Implement Change Password logic
+
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.black87,

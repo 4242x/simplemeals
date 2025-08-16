@@ -16,12 +16,11 @@ class _ProviderSignupScreenState extends State<ProviderSignupScreen> {
   final TextEditingController passwordController = TextEditingController();
   final TextEditingController cityController = TextEditingController();
   
-  // State variable to hold the selected state
+
   String? _selectedState;
 
   bool isLoading = false;
 
-  // List of all Indian states and UTs
   final List<String> indianStates = [
     'Andhra Pradesh', 'Arunachal Pradesh', 'Assam', 'Bihar', 'Chhattisgarh',
     'Goa', 'Gujarat', 'Haryana', 'Himachal Pradesh', 'Jharkhand', 'Karnataka',
@@ -111,7 +110,7 @@ class _ProviderSignupScreenState extends State<ProviderSignupScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Wrap the Scaffold with GestureDetector to dismiss keyboard on tap
+
     return GestureDetector(
       onTap: () => FocusScope.of(context).unfocus(),
       child: Scaffold(
@@ -169,7 +168,7 @@ class _ProviderSignupScreenState extends State<ProviderSignupScreen> {
                               controller: passwordController,
                             ),
                             const SizedBox(height: 20),
-                            // State Dropdown
+
                             _buildStateDropdown(),
                             const SizedBox(height: 20),
                             _labeledInput(label: 'Enter City', controller: cityController),

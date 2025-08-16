@@ -28,7 +28,7 @@ class _InstitutionFeedbackScreenState extends State<InstitutionFeedbackScreen> {
     }
 
     try {
-      // Fetch feedback for the current institution
+
       final feedbackSnapshot = await FirebaseFirestore.instance
           .collection('feedback')
           .where('institutionId', isEqualTo: user.uid)
@@ -36,7 +36,7 @@ class _InstitutionFeedbackScreenState extends State<InstitutionFeedbackScreen> {
       
       _feedbackList = feedbackSnapshot.docs.map((doc) => doc.data()).toList();
 
-      // Fetch provider details
+
       final instituteDoc = await FirebaseFirestore.instance.collection('institutes').doc(user.uid).get();
       final providerId = instituteDoc.data()?['profile']?['providerId'];
 
